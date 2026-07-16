@@ -1,5 +1,8 @@
 # Flatten PDFs for macOS
 
+> **Windows?** A native Windows version with the same behavior lives in
+> [`windows/`](windows/) — see [windows/README.md](windows/README.md).
+
 A small native macOS app that accepts one or more PDFs by:
 
 - dragging them onto the app icon;

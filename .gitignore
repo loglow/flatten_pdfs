@@ -1,2 +1,5 @@
 *.DS_Store
 Flatten PDFs.app
+
+# Windows build output (compiled exe + downloaded pdfium.dll)
+windows/build/
