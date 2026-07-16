@@ -907,11 +907,9 @@ namespace FlattenPDFs
             }
             catch (InvalidOperationException)
             {
-                // Handle destroyed between the check and the call; ignore.
-            }
-            catch (ObjectDisposedException)
-            {
-                // Form disposed during shutdown; ignore.
+                // The window was torn down between the IsHandleCreated check
+                // and this call (e.g. the user quit mid-batch). ObjectDisposed-
+                // Exception derives from this, so both cases are handled here.
             }
         }
 
