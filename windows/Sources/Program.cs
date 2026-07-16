@@ -4,8 +4,8 @@
 // highlights, drawings, text boxes, signatures, form fields) into ordinary
 // page content and replaces each PDF in place. It is the Windows counterpart
 // of the macOS build: same behavior, standard Windows interface and
-// conventions (menu bar, Open... / Ctrl+O, drag-and-drop, status bar,
-// message boxes) rather than macOS ones.
+// conventions (menu bar, Open... / Ctrl+O, drag-and-drop, message boxes)
+// rather than macOS ones.
 //
 // The macOS version relies on PDFKit, a system framework unique to macOS that
 // both renders annotations and writes real (vector) PDFs. Windows has no
@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -518,12 +519,9 @@ namespace FlattenPDFs
         private Button _openButton;
         private Button _clearButton;
         private ToolStripMenuItem _openMenuItem;
-        private ToolStripStatusLabel _statusLabel;
-        private ToolStripProgressBar _progress;
-        private TableLayoutPanel _content;
+        private DropPanel _dropPanel;
 
         private int _activeBatches;
-        private Color _idleContentColor;
 
         public MainForm(string[] initialFiles)
         {
@@ -571,31 +569,23 @@ namespace FlattenPDFs
             menu.Items.Add(helpMenu);
             MainMenuStrip = menu;
 
-            // Status bar.
-            StatusStrip status = new StatusStrip();
-            _statusLabel = new ToolStripStatusLabel("Ready");
-            _statusLabel.Spring = true;
-            _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-            _progress = new ToolStripProgressBar();
-            _progress.Style = ProgressBarStyle.Marquee;
-            _progress.Visible = false;
-            _progress.AutoSize = false;
-            _progress.Size = new Size(140, 16);
-            status.Items.Add(_statusLabel);
-            status.Items.Add(_progress);
+            // The content sits inside an inset, rounded panel that doubles as
+            // the drop target -- the Windows counterpart of the macOS app's
+            // inset drop-zone border. The panel owner-draws the border (see
+            // DropPanel) and its padding keeps the content clear of it.
+            _dropPanel = new DropPanel();
+            _dropPanel.Dock = DockStyle.Fill;
+            _dropPanel.Padding = new Padding(28);
 
-            // Central content: instructions, buttons, and a log.
-            _content = new TableLayoutPanel();
-            _content.Dock = DockStyle.Fill;
-            _content.ColumnCount = 1;
-            _content.RowCount = 4;
-            _content.Padding = new Padding(16);
-            _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            _content.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            _idleContentColor = _content.BackColor;
+            TableLayoutPanel content = new TableLayoutPanel();
+            content.Dock = DockStyle.Fill;
+            content.ColumnCount = 1;
+            content.RowCount = 4;
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            content.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
             Label title = new Label();
             title.Text = "Drop PDF files here";
@@ -639,27 +629,29 @@ namespace FlattenPDFs
             _log = new TextBox();
             _log.Multiline = true;
             _log.ReadOnly = true;
-            _log.WordWrap = false;
-            _log.ScrollBars = ScrollBars.Both;
+            _log.WordWrap = true;
+            _log.ScrollBars = ScrollBars.Vertical;
             _log.BackColor = SystemColors.Window;
             _log.Font = new Font("Consolas", 9.5f);
             _log.Dock = DockStyle.Fill;
             _log.TabStop = false;
 
-            _content.Controls.Add(title, 0, 0);
-            _content.Controls.Add(detail, 0, 1);
-            _content.Controls.Add(buttons, 0, 2);
-            _content.Controls.Add(_log, 0, 3);
+            content.Controls.Add(title, 0, 0);
+            content.Controls.Add(detail, 0, 1);
+            content.Controls.Add(buttons, 0, 2);
+            content.Controls.Add(_log, 0, 3);
+            _dropPanel.Controls.Add(content);
 
-            Controls.Add(_content);
-            Controls.Add(status);
+            Controls.Add(_dropPanel);
             Controls.Add(menu);
 
-            // Accept drops anywhere over the window's main surfaces.
+            // Accept drops anywhere over the window and its content.
             EnableDrop(this);
-            EnableDrop(_content);
+            EnableDrop(_dropPanel);
+            EnableDrop(content);
             EnableDrop(title);
             EnableDrop(detail);
+            EnableDrop(buttons);
             EnableDrop(_log);
         }
 
@@ -707,14 +699,19 @@ namespace FlattenPDFs
 
         private void OnDragLeave(object sender, EventArgs e)
         {
-            SetHighlight(false);
+            // DragLeave also fires when the pointer crosses from the panel onto
+            // one of its child controls, which would flicker the highlight. Only
+            // clear it once the pointer is truly outside the drop panel.
+            Point pointer = _dropPanel.PointToClient(Cursor.Position);
+            if (!_dropPanel.ClientRectangle.Contains(pointer))
+            {
+                _dropPanel.Highlighted = false;
+            }
         }
 
         private void SetHighlight(bool highlighted)
         {
-            _content.BackColor = highlighted
-                ? ControlPaint.LightLight(SystemColors.Highlight)
-                : _idleContentColor;
+            _dropPanel.Highlighted = highlighted;
         }
 
         private static bool HasPdf(IDataObject data)
@@ -888,7 +885,6 @@ namespace FlattenPDFs
             Post((Action)delegate
             {
                 SetBusy(false);
-                _statusLabel.Text = "Done";
                 System.Media.SystemSounds.Asterisk.Play();
             });
         }
@@ -926,8 +922,77 @@ namespace FlattenPDFs
         {
             _openButton.Enabled = !busy;
             _openMenuItem.Enabled = !busy;
-            _progress.Visible = busy;
-            _statusLabel.Text = busy ? "Processing..." : "Ready";
+        }
+    }
+
+    // An inset, rounded-rectangle panel that owner-draws its border and serves
+    // as the drop target. The border is drawn a fixed distance inside the
+    // panel's edges, so a margin of window background shows around it (the
+    // Windows equivalent of the macOS app's inset drop-zone border). When a
+    // valid drag is over it, the border turns the system accent color; the fill
+    // is left alone, which reads cleanly and never flickers.
+    internal sealed class DropPanel : Panel
+    {
+        private const int Inset = 12;
+        private const int Radius = 12;
+
+        private bool _highlighted;
+
+        public DropPanel()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer
+                     | ControlStyles.UserPaint
+                     | ControlStyles.ResizeRedraw, true);
+        }
+
+        public bool Highlighted
+        {
+            get { return _highlighted; }
+            set
+            {
+                if (_highlighted != value)
+                {
+                    _highlighted = value;
+                    Invalidate();
+                }
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.Clear(BackColor);
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            Rectangle bounds = ClientRectangle;
+            bounds.Inflate(-Inset, -Inset);
+            if (bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                return;
+            }
+
+            using (GraphicsPath path = CreateRoundedPath(bounds, Radius))
+            {
+                Color borderColor = _highlighted ? SystemColors.Highlight : SystemColors.ControlDark;
+                float borderWidth = _highlighted ? 2f : 1f;
+                using (Pen pen = new Pen(borderColor, borderWidth))
+                {
+                    g.DrawPath(pen, path);
+                }
+            }
+        }
+
+        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
+        {
+            int diameter = radius * 2;
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 
