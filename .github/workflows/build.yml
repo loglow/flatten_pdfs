@@ -1,0 +1,52 @@
+# Builds both apps on every push to main (and on demand from the Actions
+# tab via "Run workflow"). Each job runs the same double-clickable build
+# script used locally — the scripts skip their interactive prompts when the
+# CI environment variable is set — and uploads the finished build folder as
+# a downloadable artifact.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: ./mac/"Build Flatten PDFs.command"
+
+      # Zip with ditto before uploading: artifact packaging alone does not
+      # preserve the executable permissions inside a .app bundle.
+      - name: Package app bundle
+        run: ditto -c -k --keepParent "mac/build/Flatten PDFs.app" "Flatten-PDFs-macOS.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flatten-PDFs-macOS
+          path: Flatten-PDFs-macOS.zip
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        shell: cmd
+        run: |
+          call "windows\Build Flatten PDFs.cmd"
+          exit /b %ERRORLEVEL%
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flatten-PDFs-Windows
+          path: windows/build/

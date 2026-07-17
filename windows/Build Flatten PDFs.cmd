@@ -32,7 +32,7 @@ if not exist "%PDFIUM%" (
         echo   "%ROOT%lib"
         echo Then run this builder again.
         echo.
-        pause
+        if not defined CI pause
         exit /b 1
     )
     echo pdfium.dll ready.
@@ -45,7 +45,7 @@ if errorlevel 1 (
     echo.
     echo Build failed.
     echo.
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
@@ -64,8 +64,8 @@ echo.
 echo Note: running the app on a machine without the .NET Desktop Runtime
 echo prompts with a free download link the first time.
 echo.
-explorer /select,"%OUT%\Flatten PDFs.exe"
-pause
+if not defined CI explorer /select,"%OUT%\Flatten PDFs.exe"
+if not defined CI pause
 exit /b 0
 
 :no_sdk
@@ -76,7 +76,7 @@ echo or download it from:
 echo   https://dotnet.microsoft.com/download/dotnet/10.0
 echo Then run this builder again.
 echo.
-pause
+if not defined CI pause
 exit /b 1
 
 rem ---------------------------------------------------------------------------
