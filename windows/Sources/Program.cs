@@ -451,7 +451,8 @@ internal sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         BackColor = SystemColors.Window,
         ForeColor = SystemColors.WindowText,
-        Font = new Font("Consolas", 9.5f),
+        // 8.25 pt = 11 px, matching the Mac app's 11 px monospaced log font.
+        Font = new Font("Consolas", 8.25f),
         Dock = DockStyle.Fill,
         TabStop = false
     };
