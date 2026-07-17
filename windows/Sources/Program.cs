@@ -525,9 +525,6 @@ internal sealed class MainForm : Form
     private void BuildInterface()
     {
         Text = "Flatten PDFs";
-        // Same starting and minimum sizes as the macOS app.
-        ClientSize = new Size(Px(650), Px(430));
-        MinimumSize = new Size(Px(520), Px(360));
         StartPosition = FormStartPosition.CenterScreen;
         try
         {
@@ -605,6 +602,14 @@ internal sealed class MainForm : Form
 
         Controls.Add(_content);
         Controls.Add(menu);
+
+        // Same starting and minimum sizes as the macOS app, plus the menu
+        // strip's height: the Mac has no in-window menu bar, so matching its
+        // 650x430 (min 520x360) means matching the *content* area below the
+        // menu.
+        int menuHeight = menu.PreferredSize.Height;
+        ClientSize = new Size(Px(650), Px(430) + menuHeight);
+        MinimumSize = new Size(Px(520), Px(360) + menuHeight);
 
         // Accept drops anywhere over the window and its content.
         EnableDrop(this);
