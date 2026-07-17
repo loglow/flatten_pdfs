@@ -1,47 +1,60 @@
-# Flatten PDFs for macOS
+# Flatten PDFs
 
-> **Windows?** A native Windows version with the same behavior lives in
-> [`windows/`](windows/) — see [windows/README.md](windows/README.md).
+Native macOS and Windows apps that flatten PDF annotations — stamps,
+highlights, drawings, text boxes, signatures, and form fields — into
+ordinary page content, replacing each PDF in place.
 
-> **Shared spec:** both apps compile their user-facing strings, layout
-> metrics, and version from [`shared/app-spec.json`](shared/app-spec.json).
-> After editing it, run `python3 shared/generate.py` (the macOS builder does
-> this automatically) to regenerate `Spec.swift` / `Spec.cs` and restamp the
-> version; the generated files are committed so the Windows build needs no
-> extra tooling.
+Give either app PDFs by dragging them onto the app icon, dropping them into
+the window, or clicking **Select PDFs…** (**⌘O** / **Ctrl+O**). Each file is
+flattened to a temporary file, validated (it must reopen, keep its page
+count, and contain no remaining annotations), and only then atomically
+swapped over the original — a failure leaves the original untouched. Names
+and locations never change, results are reported in the log, and both apps
+follow the system light/dark appearance.
 
-A small native macOS app that accepts one or more PDFs by:
+## Build
 
-- dragging them onto the app icon;
-- dragging them into the app window; or
-- clicking **Select PDFs…** or pressing **Command-O**.
+Each platform builds with one double-click and puts the finished app in a
+`build` folder next to the script.
 
-For each PDF, the app renders visible PDF annotations—such as stamps, highlights, drawings, text boxes, and signatures—into ordinary page content. It validates the new PDF and only then replaces the original file.
+**macOS** — run `mac/Build Flatten PDFs.command`. Needs only Apple's Command
+Line Developer Tools (macOS offers to install them). The app uses system
+frameworks alone: AppKit, PDFKit, Core Graphics.
 
-## Build the app
+**Windows** — run `windows\Build Flatten PDFs.cmd`. Needs the free
+[.NET SDK](https://dotnet.microsoft.com/download/dotnet) version 10 or later
+(`winget install Microsoft.DotNet.SDK.10`); the script explains this if it
+is missing, and on first run downloads PDFium — the PDF engine used inside
+Edge and Chrome — which ships as `pdfium.dll` beside the executable. Keep
+the contents of `build` together. Machines that only run the app need the
+free .NET Desktop Runtime; launching without it shows a download prompt.
 
-1. Double-click **Build Flatten PDFs.command**.
-2. If macOS asks to install the Command Line Developer Tools, install them and run the builder again.
-3. Finder will reveal **Flatten PDFs.app** when the build succeeds.
-4. Move the app to **Applications** or the Dock.
+## Shared spec
 
-The builder compiles a native app for the Mac on which it is run and ad-hoc signs it locally.
-
-## Use
-
-Drag one or more PDF files onto **Flatten PDFs.app**. The same files are replaced in place; their names and locations do not change. Press **Command-O** to select PDFs, **Command-Q** to quit, or **Command-W** to close the window and quit. The standard **Flatten PDFs → About Flatten PDFs** panel displays the installed version number.
-
-The app first writes a hidden temporary PDF in the same folder, validates its page count and confirms that it contains no annotation objects, and then swaps it over the original. A failure leaves the original untouched.
+`shared/app-spec.json` is the single source of truth for both apps'
+user-facing strings, layout metrics, and version. The macOS app carries it
+as a bundle resource, the Windows app embeds it in the executable, both read
+it at startup, and each build stamps the version from it. Edit the spec,
+rebuild, and both apps update.
 
 ## Important limitations
 
 - Keep a backup the first time you use the app on an important document.
-- Flattening intentionally removes interactivity. Links, form fields, comments, embedded files, and annotation metadata will no longer behave as annotations.
-- Bookmarks, advanced PDF page boxes, accessibility tags, digital signatures, encryption, and some document metadata may not survive the rendering pass.
+- Flattening intentionally removes interactivity: links, form fields,
+  comments, and annotation metadata no longer behave as annotations. A PDF
+  whose only annotations are hyperlinks is left unchanged so they are not
+  lost; when a page is flattened, the log notes how many hyperlinks it
+  removed.
+- Bookmarks, accessibility tags, and some document metadata may not survive.
 - Password-protected or locked PDFs are rejected rather than overwritten.
-- Only visible annotations are baked into the page. Hidden annotations are discarded.
-- Existing cryptographic PDF signatures will be invalidated by any modification, including flattening.
+- Only visible annotations are baked into the page.
+- Existing cryptographic PDF signatures are invalidated by any modification,
+  including flattening.
 
 ## Source
 
-The complete implementation is in `Sources/main.swift`. It uses only macOS system frameworks: AppKit, PDFKit, Core Graphics, and Uniform Type Identifiers. The app icon is included as a native `.icns` resource.
+One file per platform: [`mac/Sources/main.swift`](mac/Sources/main.swift)
+(Swift, PDFKit) and
+[`windows/Sources/Program.cs`](windows/Sources/Program.cs) (C#, Windows
+Forms, PDFium via P/Invoke; project file
+[`windows/FlattenPDFs.csproj`](windows/FlattenPDFs.csproj)).

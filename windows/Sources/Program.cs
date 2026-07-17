@@ -24,8 +24,79 @@
 using System.Collections.Concurrent;
 using System.Media;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace FlattenPDFs;
+
+// ---------------------------------------------------------------------------
+// Shared spec.
+//
+// shared/app-spec.json is the single source of truth for the user-facing
+// strings, layout metrics (macOS points == 96-DPI pixels), and version
+// shared with the macOS app. The build embeds it into the executable (see
+// FlattenPDFs.csproj); it is deserialized once at startup. Each app declares
+// only the fields it uses -- unknown JSON keys are ignored.
+// ---------------------------------------------------------------------------
+internal static class Spec
+{
+    public static string Name => Data.Name;
+    public static string Version => Data.Version;
+    public static SpecStrings Strings => Data.Strings;
+    public static SpecLayout Layout => Data.Layout;
+
+    private static readonly SpecData Data = Load();
+
+    private static SpecData Load()
+    {
+        using Stream stream = typeof(Spec).Assembly.GetManifestResourceStream("app-spec.json")
+            ?? throw new InvalidOperationException("The embedded app-spec.json resource is missing.");
+        return JsonSerializer.Deserialize<SpecData>(
+                   stream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+               ?? throw new InvalidOperationException("app-spec.json could not be parsed.");
+    }
+
+    internal sealed class SpecData
+    {
+        public string Name { get; set; } = "";
+        public string Version { get; set; } = "";
+        public SpecStrings Strings { get; set; } = new();
+        public SpecLayout Layout { get; set; } = new();
+    }
+
+    internal sealed class SpecStrings
+    {
+        public string DropTitle { get; set; } = "";
+        public string DropDetail { get; set; } = "";
+        public string SelectPdfsButton { get; set; } = "";
+        public string ClearLogButton { get; set; } = "";
+        public string NoPdfsSelected { get; set; } = "";
+        public string UnchangedMessage { get; set; } = "";
+        public string ErrorNotPdf { get; set; } = "";
+        public string ErrorCannotOpen { get; set; } = "";
+        public string ErrorLocked { get; set; } = "";
+        public string ErrorNoPages { get; set; } = "";
+        public string ErrorPageReadFailed { get; set; } = "";
+        public string ErrorPageFlattenFailed { get; set; } = "";
+        public string ErrorSaveFailed { get; set; } = "";
+        public string ErrorValidationFailed { get; set; } = "";
+    }
+
+    internal sealed class SpecLayout
+    {
+        public int WindowWidth { get; set; }
+        public int WindowHeight { get; set; }
+        public int MinWindowWidth { get; set; }
+        public int MinWindowHeight { get; set; }
+        public int Padding { get; set; }
+        public int Spacing { get; set; }
+        public int SpacingAfterButtons { get; set; }
+        public int ButtonGap { get; set; }
+        public int TitleFontSize { get; set; }
+        public int DetailFontSize { get; set; }
+        public int LogFontSize { get; set; }
+        public int DropOutlineWidth { get; set; }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // PDFium native interop.
@@ -152,11 +223,11 @@ internal sealed class PdfFlattener
 
         if (!IsPdfPath(path))
         {
-            throw new FlattenException(Spec.ErrorNotPdf);
+            throw new FlattenException(Spec.Strings.ErrorNotPdf);
         }
         if (!File.Exists(path))
         {
-            throw new FlattenException(Spec.ErrorCannotOpen);
+            throw new FlattenException(Spec.Strings.ErrorCannotOpen);
         }
 
         byte[] input;
@@ -166,7 +237,7 @@ internal sealed class PdfFlattener
         }
         catch
         {
-            throw new FlattenException(Spec.ErrorCannotOpen);
+            throw new FlattenException(Spec.Strings.ErrorCannotOpen);
         }
 
         // Load from memory (rather than by path) so .NET handles Unicode file
@@ -181,14 +252,14 @@ internal sealed class PdfFlattener
             if (document == IntPtr.Zero)
             {
                 throw Pdfium.FPDF_GetLastError() == FPDF_ERR_PASSWORD
-                    ? new FlattenException(Spec.ErrorLocked)
-                    : new FlattenException(Spec.ErrorCannotOpen);
+                    ? new FlattenException(Spec.Strings.ErrorLocked)
+                    : new FlattenException(Spec.Strings.ErrorCannotOpen);
             }
 
             int pageCount = Pdfium.FPDF_GetPageCount(document);
             if (pageCount <= 0)
             {
-                throw new FlattenException(Spec.ErrorNoPages);
+                throw new FlattenException(Spec.Strings.ErrorNoPages);
             }
 
             (int flattenableCount, int linkCount) = CountAnnotations(document, pageCount);
@@ -208,13 +279,13 @@ internal sealed class PdfFlattener
                 IntPtr page = Pdfium.FPDF_LoadPage(document, i);
                 if (page == IntPtr.Zero)
                 {
-                    throw new FlattenException(string.Format(Spec.ErrorPageReadFailed, i + 1));
+                    throw new FlattenException(Spec.Strings.ErrorPageReadFailed.Replace("{n}", (i + 1).ToString()));
                 }
                 try
                 {
                     if (Pdfium.FPDFPage_Flatten(page, FLAT_NORMALDISPLAY) == FLATTEN_FAIL)
                     {
-                        throw new FlattenException(string.Format(Spec.ErrorPageFlattenFailed, i + 1));
+                        throw new FlattenException(Spec.Strings.ErrorPageFlattenFailed.Replace("{n}", (i + 1).ToString()));
                     }
                 }
                 finally
@@ -224,7 +295,7 @@ internal sealed class PdfFlattener
             }
 
             byte[] output = SaveDocument(document)
-                ?? throw new FlattenException(Spec.ErrorSaveFailed);
+                ?? throw new FlattenException(Spec.Strings.ErrorSaveFailed);
 
             // Validate the new PDF fully before touching the original: it
             // must reopen, keep the same page count, and retain no
@@ -264,7 +335,7 @@ internal sealed class PdfFlattener
             IntPtr page = Pdfium.FPDF_LoadPage(document, i);
             if (page == IntPtr.Zero)
             {
-                throw new FlattenException(string.Format(Spec.ErrorPageReadFailed, i + 1));
+                throw new FlattenException(Spec.Strings.ErrorPageReadFailed.Replace("{n}", (i + 1).ToString()));
             }
             try
             {
@@ -341,7 +412,7 @@ internal sealed class PdfFlattener
 
     private static int ValidateOutput(byte[] output, int expectedPageCount)
     {
-        string failed = Spec.ErrorValidationFailed;
+        string failed = Spec.Strings.ErrorValidationFailed;
 
         GCHandle handle = GCHandle.Alloc(output, GCHandleType.Pinned);
         IntPtr document = IntPtr.Zero;
@@ -449,7 +520,7 @@ internal sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         BackColor = SystemColors.Window,
         ForeColor = SystemColors.WindowText,
-        Font = new Font("Consolas", Spec.LogFontSize * PointScale),
+        Font = new Font("Consolas", Spec.Layout.LogFontSize * PointScale),
         Dock = DockStyle.Fill,
         TabStop = false
     };
@@ -480,8 +551,8 @@ internal sealed class MainForm : Form
 
     private readonly Label _detail = new()
     {
-        Text = Spec.DropDetail,
-        Font = new Font("Segoe UI", Spec.DetailFontSize * PointScale),
+        Text = Spec.Strings.DropDetail,
+        Font = new Font("Segoe UI", Spec.Layout.DetailFontSize * PointScale),
         ForeColor = SystemColors.GrayText,
         AutoSize = true,
         // Anchor None centers an auto-sized control in its table cell.
@@ -490,13 +561,13 @@ internal sealed class MainForm : Form
 
     private readonly Button _openButton = new()
     {
-        Text = Spec.SelectPdfsButton,
+        Text = Spec.Strings.SelectPdfsButton,
         AutoSize = true
     };
 
     private readonly Button _clearButton = new()
     {
-        Text = Spec.ClearLogButton,
+        Text = Spec.Strings.ClearLogButton,
         AutoSize = true
     };
 
@@ -557,7 +628,7 @@ internal sealed class MainForm : Form
         // The whole window is the drop target; the content sits directly on
         // the form. The active-drop outline is painted in _content's padding
         // ring (see OnContentPaint).
-        _content.Padding = new Padding(Px(Spec.Padding));
+        _content.Padding = new Padding(Px(Spec.Layout.Padding));
         _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -567,18 +638,18 @@ internal sealed class MainForm : Form
 
         Label title = new()
         {
-            Text = Spec.DropTitle,
-            Font = new Font("Segoe UI Semibold", Spec.TitleFontSize * PointScale),
+            Text = Spec.Strings.DropTitle,
+            Font = new Font("Segoe UI Semibold", Spec.Layout.TitleFontSize * PointScale),
             AutoSize = true,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, Px(Spec.Spacing))
+            Margin = new Padding(0, 0, 0, Px(Spec.Layout.Spacing))
         };
 
-        _detail.Margin = new Padding(0, 0, 0, Px(Spec.Spacing));
+        _detail.Margin = new Padding(0, 0, 0, Px(Spec.Layout.Spacing));
 
         _openButton.Click += OnOpen;
         _openButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
-        _openButton.Margin = new Padding(0, 0, Px(Spec.ButtonGap), 0);
+        _openButton.Margin = new Padding(0, 0, Px(Spec.Layout.ButtonGap), 0);
         _clearButton.Click += (_, _) => _log.Clear();
         _clearButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
         _clearButton.Margin = new Padding(0);
@@ -588,7 +659,7 @@ internal sealed class MainForm : Form
             AutoSize = true,
             FlowDirection = FlowDirection.LeftToRight,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, Px(Spec.SpacingAfterButtons))
+            Margin = new Padding(0, 0, 0, Px(Spec.Layout.SpacingAfterButtons))
         };
         buttons.Controls.Add(_openButton);
         buttons.Controls.Add(_clearButton);
@@ -608,8 +679,8 @@ internal sealed class MainForm : Form
         // 650x430 (min 520x360) means matching the *content* area below the
         // menu.
         int menuHeight = menu.PreferredSize.Height;
-        ClientSize = new Size(Px(Spec.WindowWidth), Px(Spec.WindowHeight) + menuHeight);
-        MinimumSize = new Size(Px(Spec.MinWindowWidth), Px(Spec.MinWindowHeight) + menuHeight);
+        ClientSize = new Size(Px(Spec.Layout.WindowWidth), Px(Spec.Layout.WindowHeight) + menuHeight);
+        MinimumSize = new Size(Px(Spec.Layout.MinWindowWidth), Px(Spec.Layout.MinWindowHeight) + menuHeight);
 
         // Accept drops anywhere over the window and its content.
         EnableDrop(this);
@@ -696,7 +767,7 @@ internal sealed class MainForm : Form
         }
         Rectangle bounds = _content.ClientRectangle;
         bounds.Inflate(-Px(2), -Px(2));
-        using Pen pen = new(SystemColors.Highlight, Spec.DropOutlineWidth * _scale);
+        using Pen pen = new(SystemColors.Highlight, Spec.Layout.DropOutlineWidth * _scale);
         e.Graphics.DrawRectangle(pen, bounds);
     }
 
@@ -762,7 +833,7 @@ internal sealed class MainForm : Form
         string[] pdfs = [.. files.Where(PdfFlattener.IsPdfPath)];
         if (pdfs.Length == 0)
         {
-            AppendLog(Spec.NoPdfsSelected);
+            AppendLog(Spec.Strings.NoPdfsSelected);
             return;
         }
 
@@ -800,7 +871,7 @@ internal sealed class MainForm : Form
     {
         if (!result.Changed)
         {
-            return $"{MarkSkip} {name}{Dash}{Spec.UnchangedMessage}";
+            return $"{MarkSkip} {name}{Dash}{Spec.Strings.UnchangedMessage}";
         }
 
         string annotations = result.FlattenedAnnotationCount == 1 ? "annotation" : "annotations";

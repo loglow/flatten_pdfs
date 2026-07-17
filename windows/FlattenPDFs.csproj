@@ -19,10 +19,12 @@
 
     <Product>Flatten PDFs</Product>
     <AssemblyTitle>Flatten PDFs</AssemblyTitle>
-    <Version>1.7.0</Version>
-    <!-- Shown by Application.ProductVersion (the About box); keep it a plain
-         two-part number and stop the SDK appending the git commit hash. -->
-    <InformationalVersion>1.7</InformationalVersion>
+    <!-- The version comes from shared/app-spec.json (which must stay
+         pretty-printed for this match). The strings and layout metrics in
+         that file are read at runtime from the embedded copy below. -->
+    <SpecVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../shared/app-spec.json')), '(?&lt;="version": ")[^"]+'))</SpecVersion>
+    <Version>$(SpecVersion).0</Version>
+    <InformationalVersion>$(SpecVersion)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
     <!-- Application.SetColorMode is still marked [Experimental] (WFO5001). -->
@@ -34,6 +36,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The shared spec, embedded into the executable and read at startup. -->
+    <EmbeddedResource Include="..\shared\app-spec.json" LogicalName="app-spec.json" />
+
     <!-- The PDFium engine, downloaded once by "Build Flatten PDFs.cmd".
          Link flattens it out of lib\ so it lands directly beside the
          executable, where DllImport("pdfium.dll") looks for it. -->

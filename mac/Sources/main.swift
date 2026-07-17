@@ -5,6 +5,61 @@ import UniformTypeIdentifiers
 
 // Requires macOS 11.0 or later (UTType / allowedContentTypes).
 
+// shared/app-spec.json is the single source of truth for the user-facing
+// strings, layout metrics (in points), and version shared with the Windows
+// app. The build script copies it into the bundle's Resources and stamps the
+// version into Info.plist; the spec is decoded once at launch. Each app
+// declares only the fields it uses — unknown JSON keys are ignored.
+struct Spec: Decodable {
+    let name: String
+    let version: String
+    let strings: Strings
+    let layout: Layout
+
+    struct Strings: Decodable {
+        let dropTitle: String
+        let dropDetail: String
+        let selectPdfsButton: String
+        let clearLogButton: String
+        let noPdfsSelected: String
+        let unchangedMessage: String
+        let errorNotPdf: String
+        let errorCannotOpen: String
+        let errorLocked: String
+        let errorNoPages: String
+        let errorCannotCreateOutput: String
+        let errorPageReadFailed: String
+        let errorValidationFailed: String
+    }
+
+    struct Layout: Decodable {
+        let windowWidth: CGFloat
+        let windowHeight: CGFloat
+        let minWindowWidth: CGFloat
+        let minWindowHeight: CGFloat
+        let padding: CGFloat
+        let spacing: CGFloat
+        let spacingAfterButtons: CGFloat
+        let buttonGap: CGFloat
+        let titleFontSize: CGFloat
+        let detailFontSize: CGFloat
+        let logFontSize: CGFloat
+        let detailMaxWidth: CGFloat
+        let logMinHeight: CGFloat
+        let dropOutlineWidth: CGFloat
+        let dropOutlineCornerRadius: CGFloat
+    }
+}
+
+let spec: Spec = {
+    guard let url = Bundle.main.url(forResource: "app-spec", withExtension: "json"),
+          let data = try? Data(contentsOf: url),
+          let decoded = try? JSONDecoder().decode(Spec.self, from: data) else {
+        fatalError("app-spec.json is missing from the app bundle or invalid")
+    }
+    return decoded
+}()
+
 private enum FlattenFailure: LocalizedError {
     case notPDF
     case cannotOpen
@@ -17,19 +72,20 @@ private enum FlattenFailure: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notPDF:
-            return Spec.errorNotPdf
+            return spec.strings.errorNotPdf
         case .cannotOpen:
-            return Spec.errorCannotOpen
+            return spec.strings.errorCannotOpen
         case .locked:
-            return Spec.errorLocked
+            return spec.strings.errorLocked
         case .noPages:
-            return Spec.errorNoPages
+            return spec.strings.errorNoPages
         case .cannotCreateOutput:
-            return Spec.errorCannotCreateOutput
+            return spec.strings.errorCannotCreateOutput
         case .pageReadFailed(let pageNumber):
-            return String(format: Spec.errorPageReadFailed, pageNumber)
+            return spec.strings.errorPageReadFailed
+                .replacingOccurrences(of: "{n}", with: String(pageNumber))
         case .outputValidationFailed:
-            return Spec.errorValidationFailed
+            return spec.strings.errorValidationFailed
         }
     }
 }
@@ -294,10 +350,10 @@ private final class PDFFlattener {
 private final class DropView: NSView {
     var onFiles: (([URL]) -> Void)?
 
-    private let titleLabel = NSTextField(labelWithString: Spec.dropTitle)
-    private let detailLabel = NSTextField(labelWithString: Spec.dropDetail)
-    private let chooseButton = NSButton(title: Spec.selectPdfsButton, target: nil, action: nil)
-    private let clearLogButton = NSButton(title: Spec.clearLogButton, target: nil, action: nil)
+    private let titleLabel = NSTextField(labelWithString: spec.strings.dropTitle)
+    private let detailLabel = NSTextField(labelWithString: spec.strings.dropDetail)
+    private let chooseButton = NSButton(title: spec.strings.selectPdfsButton, target: nil, action: nil)
+    private let clearLogButton = NSButton(title: spec.strings.clearLogButton, target: nil, action: nil)
     // scrollableTextView() wires up the sizing plumbing a text view needs
     // inside a scroll view (resizability, width tracking, autoresizing mask)
     // that a bare NSTextView assigned as documentView does not get.
@@ -306,7 +362,7 @@ private final class DropView: NSView {
         // scrollableTextView() always installs an NSTextView document view.
         logScrollView.documentView as! NSTextView
     }
-    private static let logFont = NSFont.monospacedSystemFont(ofSize: Spec.logFontSize,
+    private static let logFont = NSFont.monospacedSystemFont(ofSize: spec.layout.logFontSize,
                                                              weight: .regular)
 
     override init(frame frameRect: NSRect) {
@@ -327,10 +383,10 @@ private final class DropView: NSView {
         // tracks the system's light and dark appearance automatically.
         wantsLayer = true
 
-        titleLabel.font = NSFont.systemFont(ofSize: Spec.titleFontSize, weight: .semibold)
+        titleLabel.font = NSFont.systemFont(ofSize: spec.layout.titleFontSize, weight: .semibold)
         titleLabel.alignment = .center
 
-        detailLabel.font = NSFont.systemFont(ofSize: Spec.detailFontSize)
+        detailLabel.font = NSFont.systemFont(ofSize: spec.layout.detailFontSize)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.alignment = .center
         detailLabel.maximumNumberOfLines = 2
@@ -358,7 +414,7 @@ private final class DropView: NSView {
         let buttonStack = NSStackView(views: [chooseButton, clearLogButton])
         buttonStack.orientation = .horizontal
         buttonStack.alignment = .centerY
-        buttonStack.spacing = Spec.buttonGap
+        buttonStack.spacing = spec.layout.buttonGap
 
         let stack = NSStackView(views: [titleLabel,
                                         detailLabel,
@@ -366,19 +422,19 @@ private final class DropView: NSView {
                                         logScrollView])
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = Spec.spacing
-        stack.setCustomSpacing(Spec.spacingAfterButtons, after: buttonStack)
+        stack.spacing = spec.layout.spacing
+        stack.setCustomSpacing(spec.layout.spacingAfterButtons, after: buttonStack)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Spec.padding),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Spec.padding),
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: Spec.padding),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Spec.padding),
-            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: Spec.detailMaxWidth),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: spec.layout.padding),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -spec.layout.padding),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: spec.layout.padding),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -spec.layout.padding),
+            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: spec.layout.detailMaxWidth),
             logScrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            logScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: Spec.logMinHeight)
+            logScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: spec.layout.logMinHeight)
         ])
     }
 
@@ -433,8 +489,8 @@ private final class DropView: NSView {
     /// drop.
     private func setHighlighted(_ highlighted: Bool) {
         layer?.borderColor = highlighted ? NSColor.controlAccentColor.cgColor : nil
-        layer?.borderWidth = highlighted ? Spec.dropOutlineWidth : 0
-        layer?.cornerRadius = highlighted ? Spec.dropOutlineCornerRadius : 0
+        layer?.borderWidth = highlighted ? spec.layout.dropOutlineWidth : 0
+        layer?.cornerRadius = highlighted ? spec.layout.dropOutlineCornerRadius : 0
     }
 
     func setBusy(_ busy: Bool) {
@@ -472,13 +528,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         installMainMenu()
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0,
-                                width: Spec.windowWidth, height: Spec.windowHeight),
+                                width: spec.layout.windowWidth, height: spec.layout.windowHeight),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = Spec.name
-        window.minSize = NSSize(width: Spec.minWindowWidth, height: Spec.minWindowHeight)
+        window.title = spec.name
+        window.minSize = NSSize(width: spec.layout.minWindowWidth, height: spec.layout.minWindowHeight)
         window.contentView = dropView
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -600,7 +656,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private func enqueue(_ incomingURLs: [URL]) {
         let urls = incomingURLs.filter { $0.isPDFFile }
         guard !urls.isEmpty else {
-            dropView.appendLog(Spec.noPdfsSelected)
+            dropView.appendLog(spec.strings.noPdfsSelected)
             return
         }
 
@@ -622,7 +678,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
                             }
                             self.dropView.appendLog(line)
                         } else {
-                            self.dropView.appendLog("– \(name) — \(Spec.unchangedMessage)")
+                            self.dropView.appendLog("– \(name) — \(spec.strings.unchangedMessage)")
                         }
                     }
                 } catch {

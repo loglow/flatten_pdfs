@@ -2,11 +2,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP="$ROOT/Flatten PDFs.app"
+OUT="$ROOT/build"
+APP="$OUT/Flatten PDFs.app"
 SOURCES="$ROOT/Sources"
 PLIST="$ROOT/Resources/Info.plist"
 ICON="$ROOT/Resources/FlattenPDFs.icns"
-BUILD="$ROOT/.build"
+SPEC="$ROOT/../shared/app-spec.json"
 
 printf '\nBuilding Flatten PDFs…\n\n'
 
@@ -19,15 +20,8 @@ if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find swiftc >/dev/null 2>&1; 
     exit 1
 fi
 
-rm -rf "$APP" "$BUILD"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$BUILD"
-
-# Regenerate the shared constants (Spec.swift / Spec.cs) and version stamps
-# from shared/app-spec.json. The generated files are committed, so this is
-# skipped quietly when Python is unavailable.
-if command -v python3 >/dev/null 2>&1 && [ -f "$ROOT/../shared/generate.py" ]; then
-    python3 "$ROOT/../shared/generate.py"
-fi
+rm -rf "$OUT"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 export MACOSX_DEPLOYMENT_TARGET="11.0"
 
@@ -42,6 +36,16 @@ xcrun swiftc \
 
 cp "$PLIST" "$APP/Contents/Info.plist"
 cp "$ICON" "$APP/Contents/Resources/FlattenPDFs.icns"
+
+# The shared spec rides along as a bundle resource (the app reads it at
+# launch), and its version stamps the bundle's Info.plist.
+cp "$SPEC" "$APP/Contents/Resources/app-spec.json"
+VERSION="$(plutil -extract version raw -o - "$SPEC")"
+BUILDNUM="$(plutil -extract buildNumber raw -o - "$SPEC")"
+/usr/libexec/PlistBuddy \
+    -c "Set :CFBundleShortVersionString $VERSION" \
+    -c "Set :CFBundleVersion $BUILDNUM" \
+    "$APP/Contents/Info.plist"
 
 # Ad-hoc signing prevents the locally built bundle from appearing unsigned to macOS.
 codesign --force --deep --sign - "$APP" >/dev/null

@@ -1,7 +1,8 @@
 *.DS_Store
 Flatten PDFs.app
 
-# Windows build output and intermediates, plus the downloaded pdfium.dll
+# Build outputs and intermediates, plus the downloaded pdfium.dll
+mac/build/
 windows/build/
 windows/bin/
 windows/obj/

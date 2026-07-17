@@ -40,7 +40,7 @@ if not exist "%PDFIUM%" (
 )
 
 rem --- Build ---
-dotnet publish "%ROOT%FlattenPDFs.csproj" -c Release -o "%OUT%"
+dotnet publish "%ROOT%FlattenPDFs.csproj" -c Release -o "%OUT%" -p:DebugType=None
 if errorlevel 1 (
     echo.
     echo Build failed.
@@ -48,6 +48,10 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+
+rem --- Remove intermediate build files; build\ holds the finished app ---
+rd /s /q "%ROOT%bin" >nul 2>nul
+rd /s /q "%ROOT%obj" >nul 2>nul
 
 echo.
 echo Built successfully:
