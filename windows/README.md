@@ -6,8 +6,9 @@ signatures, and form fields — into ordinary page content, validates the
 result, and only then replaces the original file in place.
 
 It uses standard Windows conventions rather than mimicking macOS: a normal
-menu bar, **File ▸ Open…** / **Ctrl+O**, drag-and-drop, a status bar, the
-standard notification sound on completion, and ordinary message dialogs.
+menu bar, **File ▸ Open…** / **Ctrl+O**, drag-and-drop, the standard
+notification sound on completion, and ordinary message dialogs. It follows
+the system's light or dark theme, including while running.
 
 ## Requirements
 

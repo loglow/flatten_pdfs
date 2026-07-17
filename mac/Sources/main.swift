@@ -294,10 +294,9 @@ private final class PDFFlattener {
 private final class DropView: NSView {
     var onFiles: (([URL]) -> Void)?
 
-    private let dropTargetView = NSView()
-    private let titleLabel = NSTextField(labelWithString: "Drop PDFs here")
-    private let detailLabel = NSTextField(labelWithString: "Annotations will be flattened and each PDF will be replaced in place.")
-    private let chooseButton = NSButton(title: "Choose PDFs…", target: nil, action: nil)
+    private let titleLabel = NSTextField(labelWithString: "Drop PDF files here")
+    private let detailLabel = NSTextField(labelWithString: "Annotations will be flattened and each PDF will be permanently updated.")
+    private let chooseButton = NSButton(title: "Select PDFs…", target: nil, action: nil)
     private let clearLogButton = NSButton(title: "Clear Log", target: nil, action: nil)
     // scrollableTextView() wires up the sizing plumbing a text view needs
     // inside a scroll view (resizability, width tracking, autoresizing mask)
@@ -309,7 +308,6 @@ private final class DropView: NSView {
     }
     private static let logFont = NSFont.monospacedSystemFont(ofSize: 11,
                                                              weight: .regular)
-    private var isDragHighlighted = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -324,16 +322,10 @@ private final class DropView: NSView {
     private func setup() {
         registerForDraggedTypes([.fileURL])
 
+        // The layer is only used for the drop highlight; with no background
+        // color of its own, the standard window background shows through and
+        // tracks the system's light and dark appearance automatically.
         wantsLayer = true
-        layer?.backgroundColor = outerBackgroundColor.cgColor
-
-        dropTargetView.wantsLayer = true
-        dropTargetView.layer?.cornerRadius = 14
-        dropTargetView.layer?.borderWidth = 2
-        dropTargetView.layer?.borderColor = NSColor.separatorColor.cgColor
-        dropTargetView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        dropTargetView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(dropTargetView)
 
         titleLabel.font = NSFont.systemFont(ofSize: 24, weight: .semibold)
         titleLabel.alignment = .center
@@ -347,10 +339,12 @@ private final class DropView: NSView {
         chooseButton.target = self
         chooseButton.action = #selector(chooseFiles)
         chooseButton.bezelStyle = .rounded
+        chooseButton.refusesFirstResponder = true
 
         clearLogButton.target = self
         clearLogButton.action = #selector(clearLog)
         clearLogButton.bezelStyle = .rounded
+        clearLogButton.refusesFirstResponder = true
 
         logView.isEditable = false
         logView.isSelectable = true
@@ -372,21 +366,16 @@ private final class DropView: NSView {
                                         logScrollView])
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 14
-        stack.setCustomSpacing(24, after: buttonStack)
+        stack.spacing = 12
+        stack.setCustomSpacing(20, after: buttonStack)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        dropTargetView.addSubview(stack)
+        addSubview(stack)
 
         NSLayoutConstraint.activate([
-            dropTargetView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
-            dropTargetView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
-            dropTargetView.topAnchor.constraint(equalTo: topAnchor, constant: 18),
-            dropTargetView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
-
-            stack.leadingAnchor.constraint(equalTo: dropTargetView.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: dropTargetView.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: dropTargetView.topAnchor, constant: 24),
-            stack.bottomAnchor.constraint(equalTo: dropTargetView.bottomAnchor, constant: -24),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 20),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20),
             detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
             logScrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
             logScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 170)
@@ -409,18 +398,6 @@ private final class DropView: NSView {
         logView.string = ""
     }
 
-    private var outerBackgroundColor: NSColor {
-        return NSColor.windowBackgroundColor.blended(withFraction: 0.16,
-                                                     of: .black)
-            ?? NSColor.windowBackgroundColor
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        layer?.backgroundColor = outerBackgroundColor.cgColor
-        updateBorder()
-    }
-
     private func PDFURLs(from draggingInfo: NSDraggingInfo) -> [URL] {
         let objects = draggingInfo.draggingPasteboard.readObjects(
             forClasses: [NSURL.self],
@@ -431,14 +408,12 @@ private final class DropView: NSView {
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let valid = !PDFURLs(from: sender).isEmpty
-        isDragHighlighted = valid
-        updateBorder()
+        setHighlighted(valid)
         return valid ? .copy : []
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
-        isDragHighlighted = false
-        updateBorder()
+        setHighlighted(false)
     }
 
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
@@ -447,20 +422,18 @@ private final class DropView: NSView {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let urls = PDFURLs(from: sender)
-        isDragHighlighted = false
-        updateBorder()
+        setHighlighted(false)
         guard !urls.isEmpty else { return false }
         onFiles?(urls)
         return true
     }
 
-    private func updateBorder() {
-        dropTargetView.layer?.borderColor = (isDragHighlighted
-            ? NSColor.controlAccentColor
-            : NSColor.separatorColor).cgColor
-        dropTargetView.layer?.backgroundColor = (isDragHighlighted
-            ? NSColor.controlAccentColor.withAlphaComponent(0.08)
-            : NSColor.windowBackgroundColor).cgColor
+    /// AppKit provides no automatic drop-target styling for custom views, so
+    /// an accent-color tint over the whole window indicates an active drop.
+    private func setHighlighted(_ highlighted: Bool) {
+        layer?.backgroundColor = highlighted
+            ? NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
+            : nil
     }
 
     func setBusy(_ busy: Bool) {
@@ -505,7 +478,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "Flatten PDFs"
         window.minSize = NSSize(width: 520, height: 360)
         window.contentView = dropView
-        window.isMovableByWindowBackground = true
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window

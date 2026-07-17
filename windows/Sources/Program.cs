@@ -5,7 +5,7 @@
 // page content and replaces each PDF in place. It is the Windows counterpart
 // of the macOS build: same behavior, standard Windows interface and
 // conventions (menu bar, Open... / Ctrl+O, drag-and-drop, message boxes)
-// rather than macOS ones.
+// rather than macOS ones, and it follows the system light or dark theme.
 //
 // The macOS version relies on PDFKit, a system framework unique to macOS that
 // both renders annotations and writes real (vector) PDFs. Windows has no
@@ -24,7 +24,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -34,8 +33,8 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("Flatten PDFs")]
 [assembly: AssemblyProduct("Flatten PDFs")]
 [assembly: AssemblyDescription("Flattens PDF annotations into page content and replaces each file in place.")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace FlattenPDFs
 {
@@ -501,7 +500,7 @@ namespace FlattenPDFs
     // ---------------------------------------------------------------------
     internal sealed class MainForm : Form
     {
-        private const string AppVersion = "1.6";
+        private const string AppVersion = "1.7";
 
         // Status markers in the log, written as Unicode escapes so the source
         // file's encoding never affects them: check mark, en dash, ballot X,
@@ -516,12 +515,16 @@ namespace FlattenPDFs
         private readonly string[] _initialFiles;
 
         private TextBox _log;
+        private Label _detail;
         private Button _openButton;
         private Button _clearButton;
+        private MenuStrip _menu;
         private ToolStripMenuItem _openMenuItem;
-        private DropPanel _dropPanel;
 
         private int _activeBatches;
+        private bool _dragHighlighted;
+        private Color _idleBackColor;
+        private Color _idleLogColor;
 
         public MainForm(string[] initialFiles)
         {
@@ -568,19 +571,15 @@ namespace FlattenPDFs
             menu.Items.Add(fileMenu);
             menu.Items.Add(helpMenu);
             MainMenuStrip = menu;
+            _menu = menu;
 
-            // The content sits inside an inset, rounded panel that doubles as
-            // the drop target -- the Windows counterpart of the macOS app's
-            // inset drop-zone border. The panel owner-draws the border (see
-            // DropPanel) and its padding keeps the content clear of it.
-            _dropPanel = new DropPanel();
-            _dropPanel.Dock = DockStyle.Fill;
-            _dropPanel.Padding = new Padding(28);
-
+            // The whole window is the drop target; the content sits directly
+            // on the form with standard margins.
             TableLayoutPanel content = new TableLayoutPanel();
             content.Dock = DockStyle.Fill;
             content.ColumnCount = 1;
             content.RowCount = 4;
+            content.Padding = new Padding(12);
             content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -596,14 +595,13 @@ namespace FlattenPDFs
             title.Height = 44;
             title.Margin = new Padding(0, 4, 0, 0);
 
-            Label detail = new Label();
-            detail.Text = "Annotations are flattened and each PDF is replaced in place.";
-            detail.ForeColor = SystemColors.GrayText;
-            detail.AutoSize = false;
-            detail.TextAlign = ContentAlignment.MiddleCenter;
-            detail.Dock = DockStyle.Fill;
-            detail.Height = 24;
-            detail.Margin = new Padding(0, 0, 0, 8);
+            _detail = new Label();
+            _detail.Text = "Annotations will be flattened and each PDF will be permanently updated.";
+            _detail.AutoSize = false;
+            _detail.TextAlign = ContentAlignment.MiddleCenter;
+            _detail.Dock = DockStyle.Fill;
+            _detail.Height = 24;
+            _detail.Margin = new Padding(0, 0, 0, 8);
 
             FlowLayoutPanel buttons = new FlowLayoutPanel();
             buttons.AutoSize = true;
@@ -612,7 +610,7 @@ namespace FlattenPDFs
             buttons.Margin = new Padding(0, 0, 0, 12);
 
             _openButton = new Button();
-            _openButton.Text = "Open PDFs...";
+            _openButton.Text = "Select PDFs...";
             _openButton.AutoSize = true;
             _openButton.Padding = new Padding(8, 2, 8, 2);
             _openButton.Click += OnOpen;
@@ -626,33 +624,40 @@ namespace FlattenPDFs
             buttons.Controls.Add(_openButton);
             buttons.Controls.Add(_clearButton);
 
-            _log = new TextBox();
+            // A borderless LogBox (see below) avoids the themed Edit-control
+            // frame: no resting bottom line and no accent underline or caret
+            // on focus. Text remains selectable and copyable.
+            _log = new LogBox();
             _log.Multiline = true;
             _log.ReadOnly = true;
             _log.WordWrap = true;
             _log.ScrollBars = ScrollBars.Vertical;
-            _log.BackColor = SystemColors.Window;
+            _log.BorderStyle = BorderStyle.None;
             _log.Font = new Font("Consolas", 9.5f);
             _log.Dock = DockStyle.Fill;
             _log.TabStop = false;
 
             content.Controls.Add(title, 0, 0);
-            content.Controls.Add(detail, 0, 1);
+            content.Controls.Add(_detail, 0, 1);
             content.Controls.Add(buttons, 0, 2);
             content.Controls.Add(_log, 0, 3);
-            _dropPanel.Controls.Add(content);
 
-            Controls.Add(_dropPanel);
+            Controls.Add(content);
             Controls.Add(menu);
 
             // Accept drops anywhere over the window and its content.
             EnableDrop(this);
-            EnableDrop(_dropPanel);
             EnableDrop(content);
             EnableDrop(title);
-            EnableDrop(detail);
+            EnableDrop(_detail);
             EnableDrop(buttons);
             EnableDrop(_log);
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            ApplyTheme();
         }
 
         protected override void OnShown(EventArgs e)
@@ -699,19 +704,45 @@ namespace FlattenPDFs
 
         private void OnDragLeave(object sender, EventArgs e)
         {
-            // DragLeave also fires when the pointer crosses from the panel onto
-            // one of its child controls, which would flicker the highlight. Only
-            // clear it once the pointer is truly outside the drop panel.
-            Point pointer = _dropPanel.PointToClient(Cursor.Position);
-            if (!_dropPanel.ClientRectangle.Contains(pointer))
+            // DragLeave also fires when the pointer crosses from one control
+            // onto another inside the window, which would flicker the
+            // highlight. Only clear it once the pointer is truly outside.
+            Point pointer = PointToClient(Cursor.Position);
+            if (!ClientRectangle.Contains(pointer))
             {
-                _dropPanel.Highlighted = false;
+                SetHighlight(false);
             }
         }
 
+        // Windows has no system-wide drop-target style for plain windows, so
+        // the whole window tints toward the selection highlight color while a
+        // valid drag is over it. Labels and panels follow the form's BackColor
+        // automatically (ambient properties); the log is tinted explicitly.
         private void SetHighlight(bool highlighted)
         {
-            _dropPanel.Highlighted = highlighted;
+            if (_dragHighlighted == highlighted)
+            {
+                return;
+            }
+            _dragHighlighted = highlighted;
+            if (highlighted)
+            {
+                BackColor = Blend(_idleBackColor, SystemColors.Highlight, 0.20);
+                _log.BackColor = Blend(_idleLogColor, SystemColors.Highlight, 0.12);
+            }
+            else
+            {
+                BackColor = _idleBackColor;
+                _log.BackColor = _idleLogColor;
+            }
+        }
+
+        private static Color Blend(Color baseColor, Color tint, double amount)
+        {
+            return Color.FromArgb(
+                baseColor.R + (int)((tint.R - baseColor.R) * amount),
+                baseColor.G + (int)((tint.G - baseColor.G) * amount),
+                baseColor.B + (int)((tint.B - baseColor.B) * amount));
         }
 
         private static bool HasPdf(IDataObject data)
@@ -747,7 +778,7 @@ namespace FlattenPDFs
         {
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
-                dialog.Title = "Open PDFs";
+                dialog.Title = "Select PDFs";
                 dialog.Filter = "PDF files (*.pdf)|*.pdf|All files (*.*)|*.*";
                 dialog.Multiselect = true;
                 if (dialog.ShowDialog(this) == DialogResult.OK)
@@ -771,9 +802,7 @@ namespace FlattenPDFs
         {
             MessageBox.Show(
                 this,
-                "Flatten PDFs " + AppVersion + "\r\n\r\n" +
-                "Flattens PDF annotations into page content and replaces each " +
-                "file in place.\r\n\r\nPDF engine: PDFium.",
+                "Flatten PDFs " + AppVersion,
                 "About Flatten PDFs",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -923,76 +952,161 @@ namespace FlattenPDFs
             _openButton.Enabled = !busy;
             _openMenuItem.Enabled = !busy;
         }
+
+        // ------- Light / dark theme -------
+        //
+        // WinForms (.NET Framework) has no built-in dark-mode support, so the
+        // app applies it directly: the system setting is read from the
+        // registry, a handful of colors are set (everything else inherits via
+        // WinForms' ambient properties), the title bar is switched through
+        // DWM, and WM_SETTINGCHANGE re-applies the theme when the user flips
+        // the system setting while the app is running.
+
+        private const int WM_SETTINGCHANGE = 0x001A;
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(
+            IntPtr hwnd, int attribute, ref int value, int size);
+
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+            if (m.Msg == WM_SETTINGCHANGE && m.LParam != IntPtr.Zero &&
+                "ImmersiveColorSet".Equals(Marshal.PtrToStringUni(m.LParam),
+                                           StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyTheme();
+            }
+        }
+
+        private static bool IsSystemDark()
+        {
+            try
+            {
+                object value = Microsoft.Win32.Registry.GetValue(
+                    "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows" +
+                    "\\CurrentVersion\\Themes\\Personalize",
+                    "AppsUseLightTheme", 1);
+                return value is int && (int)value == 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ApplyTheme()
+        {
+            bool dark = IsSystemDark();
+            _dragHighlighted = false;
+
+            _idleBackColor = dark ? Color.FromArgb(32, 32, 32) : SystemColors.Control;
+            _idleLogColor = dark ? Color.FromArgb(25, 25, 25) : SystemColors.Window;
+
+            BackColor = _idleBackColor;
+            ForeColor = dark ? Color.FromArgb(240, 240, 240) : SystemColors.ControlText;
+            _detail.ForeColor = dark ? Color.FromArgb(160, 160, 160) : SystemColors.GrayText;
+            _log.BackColor = _idleLogColor;
+            _log.ForeColor = dark ? Color.FromArgb(228, 228, 228) : SystemColors.WindowText;
+
+            StyleButton(_openButton, dark);
+            StyleButton(_clearButton, dark);
+            ApplyMenuTheme(dark);
+
+            // Dark title bar. Attribute 20 on Windows 10 1903+/11; 19 on 1809.
+            if (IsHandleCreated)
+            {
+                int value = dark ? 1 : 0;
+                if (DwmSetWindowAttribute(Handle, 20, ref value, 4) != 0)
+                {
+                    DwmSetWindowAttribute(Handle, 19, ref value, 4);
+                }
+            }
+        }
+
+        private static void StyleButton(Button button, bool dark)
+        {
+            if (dark)
+            {
+                button.FlatStyle = FlatStyle.Flat;
+                button.BackColor = Color.FromArgb(45, 45, 45);
+                button.ForeColor = Color.FromArgb(240, 240, 240);
+                button.FlatAppearance.BorderColor = Color.FromArgb(96, 96, 96);
+                button.FlatAppearance.MouseOverBackColor = Color.FromArgb(62, 62, 62);
+            }
+            else
+            {
+                button.FlatStyle = FlatStyle.Standard;
+                // Color.Empty reverts both to their ambient/default values.
+                button.BackColor = Color.Empty;
+                button.ForeColor = Color.Empty;
+                button.UseVisualStyleBackColor = true;
+            }
+        }
+
+        private void ApplyMenuTheme(bool dark)
+        {
+            _menu.Renderer = dark
+                ? new ToolStripProfessionalRenderer(new DarkMenuColorTable())
+                : new ToolStripProfessionalRenderer();
+            Color text = dark ? Color.FromArgb(240, 240, 240) : SystemColors.MenuText;
+            foreach (ToolStripItem top in _menu.Items)
+            {
+                top.ForeColor = text;
+                ToolStripMenuItem item = top as ToolStripMenuItem;
+                if (item != null)
+                {
+                    foreach (ToolStripItem child in item.DropDownItems)
+                    {
+                        child.ForeColor = text;
+                    }
+                }
+            }
+        }
+
+        // Colors for the menu bar and its drop-downs in dark mode. The
+        // professional renderer takes everything else from this table.
+        private sealed class DarkMenuColorTable : ProfessionalColorTable
+        {
+            private static readonly Color Surface = Color.FromArgb(32, 32, 32);
+            private static readonly Color Popup = Color.FromArgb(43, 43, 43);
+            private static readonly Color Hover = Color.FromArgb(62, 62, 62);
+            private static readonly Color Line = Color.FromArgb(96, 96, 96);
+
+            public override Color MenuStripGradientBegin { get { return Surface; } }
+            public override Color MenuStripGradientEnd { get { return Surface; } }
+            public override Color ToolStripDropDownBackground { get { return Popup; } }
+            public override Color ImageMarginGradientBegin { get { return Popup; } }
+            public override Color ImageMarginGradientMiddle { get { return Popup; } }
+            public override Color ImageMarginGradientEnd { get { return Popup; } }
+            public override Color MenuItemSelected { get { return Hover; } }
+            public override Color MenuItemBorder { get { return Hover; } }
+            public override Color MenuBorder { get { return Line; } }
+            public override Color MenuItemSelectedGradientBegin { get { return Hover; } }
+            public override Color MenuItemSelectedGradientEnd { get { return Hover; } }
+            public override Color MenuItemPressedGradientBegin { get { return Popup; } }
+            public override Color MenuItemPressedGradientEnd { get { return Popup; } }
+            public override Color SeparatorDark { get { return Line; } }
+            public override Color SeparatorLight { get { return Popup; } }
+        }
     }
 
-    // An inset, rounded-rectangle panel that owner-draws its border and serves
-    // as the drop target. The border is drawn a fixed distance inside the
-    // panel's edges, so a margin of window background shows around it (the
-    // Windows equivalent of the macOS app's inset drop-zone border). When a
-    // valid drag is over it, the border turns the system accent color; the fill
-    // is left alone, which reads cleanly and never flickers.
-    internal sealed class DropPanel : Panel
+    // A read-only log TextBox that never shows a caret. Suppressing the caret
+    // (HideCaret's hide count is cumulative, so calling it after every message
+    // keeps it hidden for good) means the control never looks focused, while
+    // mouse selection and Ctrl+C continue to work normally.
+    internal sealed class LogBox : TextBox
     {
-        private const int Inset = 12;
-        private const int Radius = 12;
+        [DllImport("user32.dll")]
+        private static extern bool HideCaret(IntPtr hWnd);
 
-        private bool _highlighted;
-
-        public DropPanel()
+        protected override void WndProc(ref Message m)
         {
-            SetStyle(ControlStyles.AllPaintingInWmPaint
-                     | ControlStyles.OptimizedDoubleBuffer
-                     | ControlStyles.UserPaint
-                     | ControlStyles.ResizeRedraw, true);
-        }
-
-        public bool Highlighted
-        {
-            get { return _highlighted; }
-            set
+            base.WndProc(ref m);
+            if (IsHandleCreated)
             {
-                if (_highlighted != value)
-                {
-                    _highlighted = value;
-                    Invalidate();
-                }
+                HideCaret(Handle);
             }
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            Graphics g = e.Graphics;
-            g.Clear(BackColor);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-
-            Rectangle bounds = ClientRectangle;
-            bounds.Inflate(-Inset, -Inset);
-            if (bounds.Width <= 0 || bounds.Height <= 0)
-            {
-                return;
-            }
-
-            using (GraphicsPath path = CreateRoundedPath(bounds, Radius))
-            {
-                Color borderColor = _highlighted ? SystemColors.Highlight : SystemColors.ControlDark;
-                float borderWidth = _highlighted ? 2f : 1f;
-                using (Pen pen = new Pen(borderColor, borderWidth))
-                {
-                    g.DrawPath(pen, path);
-                }
-            }
-        }
-
-        private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
-        {
-            int diameter = radius * 2;
-            GraphicsPath path = new GraphicsPath();
-            path.AddArc(bounds.X, bounds.Y, diameter, diameter, 180, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Y, diameter, diameter, 270, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(bounds.X, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
         }
     }
 

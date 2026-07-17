@@ -7,7 +7,7 @@ A small native macOS app that accepts one or more PDFs by:
 
 - dragging them onto the app icon;
 - dragging them into the app window; or
-- clicking **Choose PDFs…** or pressing **Command-O**.
+- clicking **Select PDFs…** or pressing **Command-O**.
 
 For each PDF, the app renders visible PDF annotations—such as stamps, highlights, drawings, text boxes, and signatures—into ordinary page content. It validates the new PDF and only then replaces the original file.
 
@@ -22,7 +22,7 @@ The builder compiles a native app for the Mac on which it is run and ad-hoc sign
 
 ## Use
 
-Drag one or more PDF files onto **Flatten PDFs.app**. The same files are replaced in place; their names and locations do not change. Press **Command-O** to choose PDFs, **Command-Q** to quit, or **Command-W** to close the window and quit. The standard **Flatten PDFs → About Flatten PDFs** panel displays the installed version number. You can also drag the window by the gray border surrounding the drop zone.
+Drag one or more PDF files onto **Flatten PDFs.app**. The same files are replaced in place; their names and locations do not change. Press **Command-O** to select PDFs, **Command-Q** to quit, or **Command-W** to close the window and quit. The standard **Flatten PDFs → About Flatten PDFs** panel displays the installed version number.
 
 The app first writes a hidden temporary PDF in the same folder, validates its page count and confirms that it contains no annotation objects, and then swaps it over the original. A failure leaves the original untouched.
 
