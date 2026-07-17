@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Flatten PDFs</AssemblyName>
+    <RootNamespace>FlattenPDFs</RootNamespace>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+
+    <Product>Flatten PDFs</Product>
+    <AssemblyTitle>Flatten PDFs</AssemblyTitle>
+    <Version>1.7.0</Version>
+    <!-- Shown by Application.ProductVersion (the About box); keep it a plain
+         two-part number and stop the SDK appending the git commit hash. -->
+    <InformationalVersion>1.7</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <!-- Application.SetColorMode is still marked [Experimental] (WFO5001). -->
+    <NoWarn>$(NoWarn);WFO5001</NoWarn>
+
+    <!-- Lets the project compile on non-Windows machines too (useful for
+         syntax checking from macOS); has no effect when building on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The PDFium engine, downloaded once by "Build Flatten PDFs.cmd"; it is
+         copied beside the executable on build and publish. -->
+    <Content Include="lib\pdfium.dll" CopyToOutputDirectory="PreserveNewest"
+             Condition="Exists('lib\pdfium.dll')" />
+  </ItemGroup>
+
+</Project>

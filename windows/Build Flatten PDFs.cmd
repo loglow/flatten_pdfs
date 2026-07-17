@@ -2,34 +2,22 @@
 setlocal enableextensions
 title Build Flatten PDFs
 
-rem Builds Flatten PDFs.exe using the C# compiler that ships in-box with the
-rem .NET Framework (no Visual Studio, SDK, or NuGet required) and, on the first
-rem run, downloads the PDFium engine (pdfium.dll) it depends on.
+rem Builds Flatten PDFs.exe with the .NET SDK and, on the first run, downloads
+rem the PDFium engine (pdfium.dll) it depends on.
 
 set "ROOT=%~dp0"
-set "SRC=%ROOT%Sources\Program.cs"
-set "ICON=%ROOT%Resources\app.ico"
 set "OUT=%ROOT%build"
-set "EXE=%OUT%\Flatten PDFs.exe"
-set "PDFIUM=%OUT%\pdfium.dll"
+set "PDFIUM=%ROOT%lib\pdfium.dll"
 
 echo.
 echo Building Flatten PDFs...
 echo.
 
-rem --- Locate the in-box C# compiler (.NET Framework 4.x) ---
-set "CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-if not exist "%CSC%" set "CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-if not exist "%CSC%" (
-    echo Could not find the .NET Framework C# compiler ^(csc.exe^).
-    echo It ships with the .NET Framework, which is present on Windows 10 and 11.
-    echo If it is missing, install the .NET Framework 4.x from Microsoft and run this again.
-    echo.
-    pause
-    exit /b 1
-)
-
-if not exist "%OUT%" mkdir "%OUT%"
+rem --- Check for the .NET SDK (version 10 or later) ---
+where dotnet >nul 2>nul
+if errorlevel 1 goto :no_sdk
+dotnet --list-sdks | findstr /r /b /c:"1[0-9]\." >nul
+if errorlevel 1 goto :no_sdk
 
 rem --- Ensure pdfium.dll is present (downloaded once, then reused) ---
 if not exist "%PDFIUM%" (
@@ -41,7 +29,7 @@ if not exist "%PDFIUM%" (
         echo Download "pdfium-win-x64.tgz" from
         echo   https://github.com/bblanchon/pdfium-binaries/releases/latest
         echo and copy its bin\pdfium.dll into:
-        echo   "%OUT%"
+        echo   "%ROOT%lib"
         echo Then run this builder again.
         echo.
         pause
@@ -51,16 +39,8 @@ if not exist "%PDFIUM%" (
     echo.
 )
 
-rem --- Compile ---
-"%CSC%" /nologo /target:winexe /optimize+ /platform:x64 ^
-    /win32icon:"%ICON%" ^
-    /reference:System.dll ^
-    /reference:System.Core.dll ^
-    /reference:System.Drawing.dll ^
-    /reference:System.Windows.Forms.dll ^
-    /out:"%EXE%" ^
-    "%SRC%"
-
+rem --- Build ---
+dotnet publish "%ROOT%FlattenPDFs.csproj" -c Release -o "%OUT%"
 if errorlevel 1 (
     echo.
     echo Build failed.
@@ -71,15 +51,29 @@ if errorlevel 1 (
 
 echo.
 echo Built successfully:
-echo   "%EXE%"
+echo   "%OUT%\Flatten PDFs.exe"
 echo.
 echo Keep pdfium.dll in the same folder as the .exe. You can move the whole
 echo "build" folder anywhere, pin the .exe to the Start menu or taskbar, drag
 echo PDF files onto it, or open it and drop PDFs into the window.
 echo.
-explorer /select,"%EXE%"
+echo Note: running the app on a machine without the .NET Desktop Runtime
+echo prompts with a free download link the first time.
+echo.
+explorer /select,"%OUT%\Flatten PDFs.exe"
 pause
 exit /b 0
+
+:no_sdk
+echo The .NET SDK (version 10 or later) is required to build this app.
+echo Install it with:
+echo   winget install Microsoft.DotNet.SDK.10
+echo or download it from:
+echo   https://dotnet.microsoft.com/download/dotnet/10.0
+echo Then run this builder again.
+echo.
+pause
+exit /b 1
 
 rem ---------------------------------------------------------------------------
 :fetch_pdfium
@@ -87,7 +81,8 @@ setlocal
 rem The "latest" URL always resolves to the newest release. To pin a specific
 rem version instead, replace "latest/download" with "download/chromium%%2FNNNN".
 set "URL=https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz"
-set "TMP=%OUT%\pdfium-download"
+set "TMP=%ROOT%lib\pdfium-download"
+if not exist "%ROOT%lib" mkdir "%ROOT%lib"
 if exist "%TMP%" rmdir /s /q "%TMP%"
 mkdir "%TMP%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^

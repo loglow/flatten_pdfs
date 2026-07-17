@@ -12,9 +12,15 @@ the system's light or dark theme, including while running.
 
 ## Requirements
 
-- Windows 10 (version 1803 or later) or Windows 11, 64-bit.
-- The .NET Framework 4.x, which is already part of Windows 10/11. Its in-box
-  C# compiler builds the app — no Visual Studio, SDK, or NuGet needed.
+- Windows 10 or 11, 64-bit.
+- **To build:** the free [.NET SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+  (version 10 or later) — one-time install, e.g.
+  `winget install Microsoft.DotNet.SDK.10`. The build script checks for it and
+  shows these instructions if it is missing.
+- **To run** on a machine you didn't build on: the free .NET Desktop Runtime.
+  If it is missing, launching the app shows a prompt with a direct download
+  link. (The SDK already includes it, so the build machine needs nothing
+  extra.)
 
 ## Build the app
 
@@ -75,5 +81,6 @@ These mirror the macOS version:
 ## Source
 
 The complete implementation is in `Sources/Program.cs` — a single C# file
-using only the .NET Framework (Windows Forms) plus PDFium via P/Invoke. The
-app icon is `Resources/app.ico`.
+(Windows Forms on modern .NET) plus PDFium via P/Invoke, with the project
+defined by `FlattenPDFs.csproj`. Light/dark theming comes from Windows Forms'
+built-in color-mode support. The app icon is `Resources/app.ico`.
