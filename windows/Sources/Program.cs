@@ -521,7 +521,10 @@ internal sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         BackColor = SystemColors.Window,
         ForeColor = SystemColors.WindowText,
-        Font = new Font("Consolas", Spec.Layout.LogFontSize * PointScale),
+        // Consolas looks smaller than the Mac's SF Mono at the same pixel
+        // size, so the log uses 9 pt (12 px) instead of the strict 0.75
+        // conversion of the spec's 11 px (8.25 pt).
+        Font = new Font("Consolas", 9f),
         Dock = DockStyle.Fill,
         TabStop = false
     };
