@@ -25,6 +25,7 @@ using System.Collections.Concurrent;
 using System.Media;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using ComIDataObject = System.Runtime.InteropServices.ComTypes.IDataObject;
 
 namespace FlattenPDFs;
 
@@ -706,6 +707,7 @@ internal sealed class MainForm : Form
     {
         control.AllowDrop = true;
         control.DragEnter += OnDragEnter;
+        control.DragOver += OnDragOver;
         control.DragDrop += OnDragDrop;
         control.DragLeave += OnDragLeave;
     }
@@ -721,10 +723,18 @@ internal sealed class MainForm : Form
         {
             e.Effect = DragDropEffects.None;
         }
+        DragImage.Enter((Control)sender!, e);
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        e.Effect = _dragHighlighted ? DragDropEffects.Copy : DragDropEffects.None;
+        DragImage.Over(e);
     }
 
     private void OnDragDrop(object? sender, DragEventArgs e)
     {
+        DragImage.Drop(e);
         SetHighlight(false);
         string[] files = GetDroppedFiles(e.Data);
         if (files.Length > 0)
@@ -735,6 +745,7 @@ internal sealed class MainForm : Form
 
     private void OnDragLeave(object? sender, EventArgs e)
     {
+        DragImage.Leave();
         // DragLeave also fires when the pointer crosses from one control onto
         // another inside the window, which would flicker the highlight. Only
         // clear it once the pointer is truly outside.
@@ -927,6 +938,107 @@ internal sealed class MainForm : Form
     {
         _openButton.Enabled = !busy;
         _openMenuItem.Enabled = !busy;
+    }
+}
+
+// Relays drag events to the shell's drag-image helper so the translucent
+// file thumbnail Explorer draws while dragging stays visible over this
+// window. Plain OLE drop targets (WinForms' default) never call the helper,
+// which is why the image otherwise vanishes at the window edge. Every call
+// degrades silently: without the helper the drop still works, just without
+// the picture.
+internal static class DragImage
+{
+    private static readonly IDropTargetHelper? Helper = Create();
+
+    private static IDropTargetHelper? Create()
+    {
+        try
+        {
+            return (IDropTargetHelper)new DragDropHelper();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static void Enter(Control target, DragEventArgs e)
+    {
+        if (Helper is null || e.Data is not ComIDataObject data)
+        {
+            return;
+        }
+        Point location = new(e.X, e.Y);
+        try
+        {
+            Helper.DragEnter(target.Handle, data, ref location, (int)e.Effect);
+        }
+        catch
+        {
+        }
+    }
+
+    public static void Over(DragEventArgs e)
+    {
+        if (Helper is null)
+        {
+            return;
+        }
+        Point location = new(e.X, e.Y);
+        try
+        {
+            Helper.DragOver(ref location, (int)e.Effect);
+        }
+        catch
+        {
+        }
+    }
+
+    public static void Leave()
+    {
+        try
+        {
+            Helper?.DragLeave();
+        }
+        catch
+        {
+        }
+    }
+
+    public static void Drop(DragEventArgs e)
+    {
+        if (Helper is null || e.Data is not ComIDataObject data)
+        {
+            return;
+        }
+        Point location = new(e.X, e.Y);
+        try
+        {
+            Helper.Drop(data, ref location, (int)e.Effect);
+        }
+        catch
+        {
+        }
+    }
+
+    // shobjidl.h vtable order: DragEnter, DragLeave, DragOver, Drop, Show.
+    [ComImport]
+    [Guid("4657278B-411B-11d2-839A-00C04FD918D0")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IDropTargetHelper
+    {
+        void DragEnter(IntPtr hwndTarget, ComIDataObject dataObject, ref Point pt, int effect);
+        void DragLeave();
+        void DragOver(ref Point pt, int effect);
+        void Drop(ComIDataObject dataObject, ref Point pt, int effect);
+        void Show([MarshalAs(UnmanagedType.Bool)] bool show);
+    }
+
+    [ComImport]
+    [Guid("4657278A-411B-11d2-839A-00C04FD918D0")]
+    private class DragDropHelper
+    {
     }
 }
 
