@@ -29,9 +29,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The PDFium engine, downloaded once by "Build Flatten PDFs.cmd"; it is
-         copied beside the executable on build and publish. -->
-    <Content Include="lib\pdfium.dll" CopyToOutputDirectory="PreserveNewest"
+    <!-- The PDFium engine, downloaded once by "Build Flatten PDFs.cmd".
+         Link flattens it out of lib\ so it lands directly beside the
+         executable, where DllImport("pdfium.dll") looks for it. -->
+    <Content Include="lib\pdfium.dll" Link="pdfium.dll"
+             CopyToOutputDirectory="PreserveNewest"
              Condition="Exists('lib\pdfium.dll')" />
   </ItemGroup>
 

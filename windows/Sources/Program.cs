@@ -460,10 +460,9 @@ internal sealed class MainForm : Form
     {
         Text = "Annotations will be flattened and each PDF will be permanently updated.",
         ForeColor = SystemColors.GrayText,
-        AutoSize = false,
-        TextAlign = ContentAlignment.MiddleCenter,
-        Dock = DockStyle.Fill,
-        Height = 24,
+        AutoSize = true,
+        // Anchor None centers an auto-sized control in its table cell.
+        Anchor = AnchorStyles.None,
         Margin = new Padding(0, 0, 0, 8)
     };
 
@@ -500,6 +499,11 @@ internal sealed class MainForm : Form
     private void BuildInterface()
     {
         Text = "Flatten PDFs";
+        // Dimensions here are authored at 96 DPI; DPI autoscaling resizes the
+        // window, paddings, and fixed sizes to match the monitor's actual
+        // scale factor (fonts already scale on their own, being in points).
+        AutoScaleDimensions = new SizeF(96f, 96f);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(680, 460);
         MinimumSize = new Size(520, 380);
         StartPosition = FormStartPosition.CenterScreen;
@@ -550,10 +554,8 @@ internal sealed class MainForm : Form
         {
             Text = "Drop PDF files here",
             Font = new Font("Segoe UI", 18f),
-            AutoSize = false,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.Fill,
-            Height = 44,
+            AutoSize = true,
+            Anchor = AnchorStyles.None,
             Margin = new Padding(0, 4, 0, 0)
         };
 
