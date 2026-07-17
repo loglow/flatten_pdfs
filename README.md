@@ -25,9 +25,9 @@ frameworks alone: AppKit, PDFKit, Core Graphics.
 [.NET SDK](https://dotnet.microsoft.com/download/dotnet) version 10 or later
 (`winget install Microsoft.DotNet.SDK.10`); the script explains this if it
 is missing, and on first run downloads PDFium — the PDF engine used inside
-Edge and Chrome — which ships as `pdfium.dll` beside the executable. Keep
-the contents of `build` together. Machines that only run the app need the
-free .NET Desktop Runtime; launching without it shows a download prompt.
+Edge and Chrome. Everything, PDFium included, is packed into the single
+`Flatten PDFs.exe`. Machines that only run the app need the free .NET
+Desktop Runtime; launching without it shows a download prompt.
 
 ## Shared spec
 

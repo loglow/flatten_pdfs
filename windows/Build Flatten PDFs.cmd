@@ -57,9 +57,9 @@ echo.
 echo Built successfully:
 echo   "%OUT%\Flatten PDFs.exe"
 echo.
-echo Keep pdfium.dll in the same folder as the .exe. You can move the whole
-echo "build" folder anywhere, pin the .exe to the Start menu or taskbar, drag
-echo PDF files onto it, or open it and drop PDFs into the window.
+echo Everything is packed into that single exe. Move it anywhere, pin it to
+echo the Start menu or taskbar, drag PDF files onto it, or open it and drop
+echo PDFs into the window.
 echo.
 echo Note: running the app on a machine without the .NET Desktop Runtime
 echo prompts with a free download link the first time.

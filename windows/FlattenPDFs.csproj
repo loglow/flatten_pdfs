@@ -33,6 +33,15 @@
     <!-- Lets the project compile on non-Windows machines too (useful for
          syntax checking from macOS); has no effect when building on Windows. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <!-- Publish one self-contained-looking exe (still using the shared .NET
+         runtime). Managed code loads from the bundle in memory; pdfium.dll,
+         being native, is extracted once to a per-version cache under
+         %TEMP%\.net\ on first launch and loaded from there. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
