@@ -461,12 +461,21 @@ internal sealed class MainForm : Form
     // 1:1 to pixels here (at 96 DPI), and to Windows font points at x0.75:
     // the Mac's 24 pt semibold title is Segoe UI Semibold 18 pt, its 13 pt
     // detail text is 9.75 pt, and its 20/12/20 paddings carry over directly.
+    //
+    // Fonts scale with the display DPI automatically (they are in points),
+    // but pixel-valued properties -- window size, paddings, margins -- do
+    // not, and WinForms' form auto-scaling is unreliable for hand-built
+    // forms. So the actual DPI is measured once and every pixel dimension is
+    // multiplied explicitly through Px().
+    private readonly float _scale;
+
+    private int Px(int value) => (int)MathF.Round(value * _scale);
+
     private readonly TableLayoutPanel _content = new()
     {
         Dock = DockStyle.Fill,
         ColumnCount = 1,
-        RowCount = 4,
-        Padding = new Padding(20)
+        RowCount = 4
     };
 
     private readonly Label _detail = new()
@@ -476,22 +485,19 @@ internal sealed class MainForm : Form
         ForeColor = SystemColors.GrayText,
         AutoSize = true,
         // Anchor None centers an auto-sized control in its table cell.
-        Anchor = AnchorStyles.None,
-        Margin = new Padding(0, 0, 0, 12)
+        Anchor = AnchorStyles.None
     };
 
     private readonly Button _openButton = new()
     {
         Text = "Select PDFs...",
-        AutoSize = true,
-        Padding = new Padding(8, 2, 8, 2)
+        AutoSize = true
     };
 
     private readonly Button _clearButton = new()
     {
         Text = "Clear Log",
-        AutoSize = true,
-        Padding = new Padding(8, 2, 8, 2)
+        AutoSize = true
     };
 
     private readonly ToolStripMenuItem _openMenuItem = new("&Open...")
@@ -505,6 +511,12 @@ internal sealed class MainForm : Form
     public MainForm(string[] initialFiles)
     {
         _initialFiles = initialFiles;
+        // Creating a Graphics forces the handle into existence, so the DPI it
+        // reports is the real one for this window, on every scaling setup.
+        using (Graphics g = CreateGraphics())
+        {
+            _scale = g.DpiX / 96f;
+        }
         BuildInterface();
 
         new Thread(WorkerLoop) { IsBackground = true, Name = "FlattenPDFs.worker" }.Start();
@@ -513,14 +525,9 @@ internal sealed class MainForm : Form
     private void BuildInterface()
     {
         Text = "Flatten PDFs";
-        // Dimensions here are authored at 96 DPI; DPI autoscaling resizes the
-        // window, paddings, and fixed sizes to match the monitor's actual
-        // scale factor (fonts already scale on their own, being in points).
-        AutoScaleDimensions = new SizeF(96f, 96f);
-        AutoScaleMode = AutoScaleMode.Dpi;
         // Same starting and minimum sizes as the macOS app.
-        ClientSize = new Size(650, 430);
-        MinimumSize = new Size(520, 360);
+        ClientSize = new Size(Px(650), Px(430));
+        MinimumSize = new Size(Px(520), Px(360));
         StartPosition = FormStartPosition.CenterScreen;
         try
         {
@@ -553,6 +560,7 @@ internal sealed class MainForm : Form
         // The whole window is the drop target; the content sits directly on
         // the form. The active-drop outline is painted in _content's padding
         // ring (see OnContentPaint).
+        _content.Padding = new Padding(Px(20));
         _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -566,12 +574,16 @@ internal sealed class MainForm : Form
             Font = new Font("Segoe UI Semibold", 18f),
             AutoSize = true,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, 12)
+            Margin = new Padding(0, 0, 0, Px(12))
         };
 
+        _detail.Margin = new Padding(0, 0, 0, Px(12));
+
         _openButton.Click += OnOpen;
-        _openButton.Margin = new Padding(0, 0, 8, 0);
+        _openButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
+        _openButton.Margin = new Padding(0, 0, Px(8), 0);
         _clearButton.Click += (_, _) => _log.Clear();
+        _clearButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
         _clearButton.Margin = new Padding(0);
 
         FlowLayoutPanel buttons = new()
@@ -579,7 +591,7 @@ internal sealed class MainForm : Form
             AutoSize = true,
             FlowDirection = FlowDirection.LeftToRight,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, 20)
+            Margin = new Padding(0, 0, 0, Px(20))
         };
         buttons.Controls.Add(_openButton);
         buttons.Controls.Add(_clearButton);
@@ -678,8 +690,8 @@ internal sealed class MainForm : Form
             return;
         }
         Rectangle bounds = _content.ClientRectangle;
-        bounds.Inflate(-2, -2);
-        using Pen pen = new(SystemColors.Highlight, 3f);
+        bounds.Inflate(-Px(2), -Px(2));
+        using Pen pen = new(SystemColors.Highlight, 3f * _scale);
         e.Graphics.DrawRectangle(pen, bounds);
     }
 
