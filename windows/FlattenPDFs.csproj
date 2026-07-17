@@ -10,7 +10,12 @@
     <AssemblyName>Flatten PDFs</AssemblyName>
     <RootNamespace>FlattenPDFs</RootNamespace>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- SystemAware (the WinForms default) renders correctly under every
+         scaling regime, including the legacy "custom scaling" factor some
+         setups use (e.g. Parallels VMs), where PerMonitorV2 windows are told
+         96 DPI and draw at half size. On mixed-DPI monitors Windows resizes
+         the window itself, which always yields the right physical size. -->
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
 
     <Product>Flatten PDFs</Product>
     <AssemblyTitle>Flatten PDFs</AssemblyTitle>
