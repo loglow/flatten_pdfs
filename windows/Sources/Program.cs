@@ -521,11 +521,7 @@ internal sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         BackColor = SystemColors.Window,
         ForeColor = SystemColors.WindowText,
-        // Consolas looks smaller than the Mac's SF Mono at the same pixel
-        // size, so the log uses 10 pt (13.3 px) instead of the strict 0.75
-        // conversion of the spec's 11 px (8.25 pt) — matched by eye against
-        // the Mac app.
-        Font = new Font("Consolas", 10f),
+        Font = new Font("Consolas", Spec.Layout.LogFontSize * PointScale * ConsolasCorrection),
         Dock = DockStyle.Fill,
         TabStop = false
     };
@@ -542,6 +538,11 @@ internal sealed class MainForm : Form
     // multiplied explicitly through Px().
     // macOS point sizes convert to Windows font points at 72/96.
     private const float PointScale = 0.75f;
+
+    // Consolas renders visually smaller than the Mac's SF Mono at the same
+    // nominal size, so the log font gets this correction on top of the point
+    // conversion -- the 1.2 was matched by eye against the Mac app.
+    private const float ConsolasCorrection = 1.2f;
 
     private readonly float _scale;
 
