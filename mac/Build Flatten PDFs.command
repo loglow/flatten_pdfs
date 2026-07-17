@@ -15,10 +15,6 @@ if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find swiftc >/dev/null 2>&1; 
     echo "Apple's Command Line Developer Tools are required."
     echo "A macOS installer prompt should appear now. After installation, run this file again."
     xcode-select --install 2>/dev/null || true
-    if [ -z "${CI:-}" ]; then
-        printf '\nPress Return to close this window.'
-        read -r
-    fi
     exit 1
 fi
 
@@ -59,9 +55,7 @@ codesign --force --deep --sign - "$APP" >/dev/null
 printf '\nBuilt successfully:\n%s\n\n' "$APP"
 echo "You can move the app to Applications, keep it in the Dock, and drag PDFs onto it."
 
-# Skip the interactive tail when running unattended (GitHub Actions sets CI).
+# Reveal the app in Finder, except when running unattended (CI is set).
 if [ -z "${CI:-}" ]; then
     open -R "$APP"
-    printf '\nPress Return to close this window.'
-    read -r
 fi
