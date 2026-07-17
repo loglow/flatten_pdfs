@@ -429,11 +429,12 @@ private final class DropView: NSView {
     }
 
     /// AppKit provides no automatic drop-target styling for custom views, so
-    /// an accent-color tint over the whole window indicates an active drop.
+    /// an accent-color outline around the window content indicates an active
+    /// drop.
     private func setHighlighted(_ highlighted: Bool) {
-        layer?.backgroundColor = highlighted
-            ? NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
-            : nil
+        layer?.borderColor = highlighted ? NSColor.controlAccentColor.cgColor : nil
+        layer?.borderWidth = highlighted ? 3 : 0
+        layer?.cornerRadius = highlighted ? 10 : 0
     }
 
     func setBusy(_ busy: Bool) {

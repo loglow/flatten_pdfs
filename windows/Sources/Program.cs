@@ -456,14 +456,27 @@ internal sealed class MainForm : Form
         TabStop = false
     };
 
+    // Layout dimensions and font sizes mirror the macOS app. macOS points map
+    // 1:1 to pixels here (at 96 DPI), and to Windows font points at x0.75:
+    // the Mac's 24 pt semibold title is Segoe UI Semibold 18 pt, its 13 pt
+    // detail text is 9.75 pt, and its 20/12/20 paddings carry over directly.
+    private readonly TableLayoutPanel _content = new()
+    {
+        Dock = DockStyle.Fill,
+        ColumnCount = 1,
+        RowCount = 4,
+        Padding = new Padding(20)
+    };
+
     private readonly Label _detail = new()
     {
         Text = "Annotations will be flattened and each PDF will be permanently updated.",
+        Font = new Font("Segoe UI", 9.75f),
         ForeColor = SystemColors.GrayText,
         AutoSize = true,
         // Anchor None centers an auto-sized control in its table cell.
         Anchor = AnchorStyles.None,
-        Margin = new Padding(0, 0, 0, 8)
+        Margin = new Padding(0, 0, 0, 12)
     };
 
     private readonly Button _openButton = new()
@@ -504,8 +517,9 @@ internal sealed class MainForm : Form
         // scale factor (fonts already scale on their own, being in points).
         AutoScaleDimensions = new SizeF(96f, 96f);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(680, 460);
-        MinimumSize = new Size(520, 380);
+        // Same starting and minimum sizes as the macOS app.
+        ClientSize = new Size(650, 430);
+        MinimumSize = new Size(520, 360);
         StartPosition = FormStartPosition.CenterScreen;
         try
         {
@@ -536,53 +550,52 @@ internal sealed class MainForm : Form
         MainMenuStrip = menu;
 
         // The whole window is the drop target; the content sits directly on
-        // the form with standard margins.
-        TableLayoutPanel content = new()
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 4,
-            Padding = new Padding(12)
-        };
-        content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        content.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        // the form. The active-drop outline is painted in _content's padding
+        // ring (see OnContentPaint).
+        _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+        _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _content.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+        _content.Paint += OnContentPaint;
 
         Label title = new()
         {
             Text = "Drop PDF files here",
-            Font = new Font("Segoe UI", 18f),
+            Font = new Font("Segoe UI Semibold", 18f),
             AutoSize = true,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 4, 0, 0)
+            Margin = new Padding(0, 0, 0, 12)
         };
 
         _openButton.Click += OnOpen;
+        _openButton.Margin = new Padding(0, 0, 8, 0);
         _clearButton.Click += (_, _) => _log.Clear();
+        _clearButton.Margin = new Padding(0);
 
         FlowLayoutPanel buttons = new()
         {
             AutoSize = true,
             FlowDirection = FlowDirection.LeftToRight,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, 12)
+            Margin = new Padding(0, 0, 0, 20)
         };
         buttons.Controls.Add(_openButton);
         buttons.Controls.Add(_clearButton);
 
-        content.Controls.Add(title, 0, 0);
-        content.Controls.Add(_detail, 0, 1);
-        content.Controls.Add(buttons, 0, 2);
-        content.Controls.Add(_log, 0, 3);
+        _log.Margin = new Padding(0);
 
-        Controls.Add(content);
+        _content.Controls.Add(title, 0, 0);
+        _content.Controls.Add(_detail, 0, 1);
+        _content.Controls.Add(buttons, 0, 2);
+        _content.Controls.Add(_log, 0, 3);
+
+        Controls.Add(_content);
         Controls.Add(menu);
 
         // Accept drops anywhere over the window and its content.
         EnableDrop(this);
-        EnableDrop(content);
+        EnableDrop(_content);
         EnableDrop(title);
         EnableDrop(_detail);
         EnableDrop(buttons);
@@ -642,11 +655,11 @@ internal sealed class MainForm : Form
         }
     }
 
-    // Windows has no system-wide drop-target style for plain windows, so the
-    // whole window tints toward the selection highlight color while a valid
-    // drag is over it. Labels and panels follow the form's BackColor
-    // automatically (ambient properties); the log is tinted explicitly.
-    // SystemColors reflect the active light/dark color mode when read.
+    // Windows has no system-wide drop-target style for plain windows, so an
+    // accent-color outline around the window content indicates an active
+    // drop. It is stroked inside _content's padding ring, where no child
+    // control can cover it. SystemColors.Highlight reflects the system accent
+    // and the active light/dark color mode when read.
     private void SetHighlight(bool highlighted)
     {
         if (_dragHighlighted == highlighted)
@@ -654,23 +667,20 @@ internal sealed class MainForm : Form
             return;
         }
         _dragHighlighted = highlighted;
-        if (highlighted)
-        {
-            BackColor = Blend(SystemColors.Control, SystemColors.Highlight, 0.20);
-            _log.BackColor = Blend(SystemColors.Window, SystemColors.Highlight, 0.12);
-        }
-        else
-        {
-            BackColor = SystemColors.Control;
-            _log.BackColor = SystemColors.Window;
-        }
+        _content.Invalidate();
     }
 
-    private static Color Blend(Color baseColor, Color tint, double amount) =>
-        Color.FromArgb(
-            baseColor.R + (int)((tint.R - baseColor.R) * amount),
-            baseColor.G + (int)((tint.G - baseColor.G) * amount),
-            baseColor.B + (int)((tint.B - baseColor.B) * amount));
+    private void OnContentPaint(object? sender, PaintEventArgs e)
+    {
+        if (!_dragHighlighted)
+        {
+            return;
+        }
+        Rectangle bounds = _content.ClientRectangle;
+        bounds.Inflate(-2, -2);
+        using Pen pen = new(SystemColors.Highlight, 3f);
+        e.Graphics.DrawRectangle(pen, bounds);
+    }
 
     private static string[] GetDroppedFiles(IDataObject? data)
     {
