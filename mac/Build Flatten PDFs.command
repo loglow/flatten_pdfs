@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/Flatten PDFs.app"
-SOURCE="$ROOT/Sources/main.swift"
+SOURCES="$ROOT/Sources"
 PLIST="$ROOT/Resources/Info.plist"
 ICON="$ROOT/Resources/FlattenPDFs.icns"
 BUILD="$ROOT/.build"
@@ -22,6 +22,13 @@ fi
 rm -rf "$APP" "$BUILD"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$BUILD"
 
+# Regenerate the shared constants (Spec.swift / Spec.cs) and version stamps
+# from shared/app-spec.json. The generated files are committed, so this is
+# skipped quietly when Python is unavailable.
+if command -v python3 >/dev/null 2>&1 && [ -f "$ROOT/../shared/generate.py" ]; then
+    python3 "$ROOT/../shared/generate.py"
+fi
+
 export MACOSX_DEPLOYMENT_TARGET="11.0"
 
 xcrun swiftc \
@@ -30,7 +37,7 @@ xcrun swiftc \
     -framework AppKit \
     -framework PDFKit \
     -framework CoreGraphics \
-    "$SOURCE" \
+    "$SOURCES"/*.swift \
     -o "$APP/Contents/MacOS/FlattenPDFs"
 
 cp "$PLIST" "$APP/Contents/Info.plist"

@@ -17,19 +17,19 @@ private enum FlattenFailure: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notPDF:
-            return "The item is not a PDF file."
+            return Spec.errorNotPdf
         case .cannotOpen:
-            return "The PDF could not be opened."
+            return Spec.errorCannotOpen
         case .locked:
-            return "The PDF is encrypted or locked. Unlock it first, then try again."
+            return Spec.errorLocked
         case .noPages:
-            return "The PDF contains no pages."
+            return Spec.errorNoPages
         case .cannotCreateOutput:
-            return "A temporary output PDF could not be created."
+            return Spec.errorCannotCreateOutput
         case .pageReadFailed(let pageNumber):
-            return "Page \(pageNumber) could not be read."
+            return String(format: Spec.errorPageReadFailed, pageNumber)
         case .outputValidationFailed:
-            return "The flattened PDF failed validation, so the original was not changed."
+            return Spec.errorValidationFailed
         }
     }
 }
@@ -294,10 +294,10 @@ private final class PDFFlattener {
 private final class DropView: NSView {
     var onFiles: (([URL]) -> Void)?
 
-    private let titleLabel = NSTextField(labelWithString: "Drop PDF files here")
-    private let detailLabel = NSTextField(labelWithString: "Annotations will be flattened and each PDF will be permanently updated.")
-    private let chooseButton = NSButton(title: "Select PDFs…", target: nil, action: nil)
-    private let clearLogButton = NSButton(title: "Clear Log", target: nil, action: nil)
+    private let titleLabel = NSTextField(labelWithString: Spec.dropTitle)
+    private let detailLabel = NSTextField(labelWithString: Spec.dropDetail)
+    private let chooseButton = NSButton(title: Spec.selectPdfsButton, target: nil, action: nil)
+    private let clearLogButton = NSButton(title: Spec.clearLogButton, target: nil, action: nil)
     // scrollableTextView() wires up the sizing plumbing a text view needs
     // inside a scroll view (resizability, width tracking, autoresizing mask)
     // that a bare NSTextView assigned as documentView does not get.
@@ -306,7 +306,7 @@ private final class DropView: NSView {
         // scrollableTextView() always installs an NSTextView document view.
         logScrollView.documentView as! NSTextView
     }
-    private static let logFont = NSFont.monospacedSystemFont(ofSize: 11,
+    private static let logFont = NSFont.monospacedSystemFont(ofSize: Spec.logFontSize,
                                                              weight: .regular)
 
     override init(frame frameRect: NSRect) {
@@ -327,10 +327,10 @@ private final class DropView: NSView {
         // tracks the system's light and dark appearance automatically.
         wantsLayer = true
 
-        titleLabel.font = NSFont.systemFont(ofSize: 24, weight: .semibold)
+        titleLabel.font = NSFont.systemFont(ofSize: Spec.titleFontSize, weight: .semibold)
         titleLabel.alignment = .center
 
-        detailLabel.font = NSFont.systemFont(ofSize: 13)
+        detailLabel.font = NSFont.systemFont(ofSize: Spec.detailFontSize)
         detailLabel.textColor = .secondaryLabelColor
         detailLabel.alignment = .center
         detailLabel.maximumNumberOfLines = 2
@@ -358,7 +358,7 @@ private final class DropView: NSView {
         let buttonStack = NSStackView(views: [chooseButton, clearLogButton])
         buttonStack.orientation = .horizontal
         buttonStack.alignment = .centerY
-        buttonStack.spacing = 8
+        buttonStack.spacing = Spec.buttonGap
 
         let stack = NSStackView(views: [titleLabel,
                                         detailLabel,
@@ -366,19 +366,19 @@ private final class DropView: NSView {
                                         logScrollView])
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 12
-        stack.setCustomSpacing(20, after: buttonStack)
+        stack.spacing = Spec.spacing
+        stack.setCustomSpacing(Spec.spacingAfterButtons, after: buttonStack)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -20),
-            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Spec.padding),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Spec.padding),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: Spec.padding),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Spec.padding),
+            detailLabel.widthAnchor.constraint(lessThanOrEqualToConstant: Spec.detailMaxWidth),
             logScrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            logScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 170)
+            logScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: Spec.logMinHeight)
         ])
     }
 
@@ -433,8 +433,8 @@ private final class DropView: NSView {
     /// drop.
     private func setHighlighted(_ highlighted: Bool) {
         layer?.borderColor = highlighted ? NSColor.controlAccentColor.cgColor : nil
-        layer?.borderWidth = highlighted ? 3 : 0
-        layer?.cornerRadius = highlighted ? 10 : 0
+        layer?.borderWidth = highlighted ? Spec.dropOutlineWidth : 0
+        layer?.cornerRadius = highlighted ? Spec.dropOutlineCornerRadius : 0
     }
 
     func setBusy(_ busy: Bool) {
@@ -471,13 +471,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMainMenu()
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 650, height: 430),
+            contentRect: NSRect(x: 0, y: 0,
+                                width: Spec.windowWidth, height: Spec.windowHeight),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Flatten PDFs"
-        window.minSize = NSSize(width: 520, height: 360)
+        window.title = Spec.name
+        window.minSize = NSSize(width: Spec.minWindowWidth, height: Spec.minWindowHeight)
         window.contentView = dropView
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -599,7 +600,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private func enqueue(_ incomingURLs: [URL]) {
         let urls = incomingURLs.filter { $0.isPDFFile }
         guard !urls.isEmpty else {
-            dropView.appendLog("No PDF files were selected.")
+            dropView.appendLog(Spec.noPdfsSelected)
             return
         }
 
@@ -621,7 +622,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
                             }
                             self.dropView.appendLog(line)
                         } else {
-                            self.dropView.appendLog("– \(name) — no flattenable annotations; unchanged.")
+                            self.dropView.appendLog("– \(name) — \(Spec.unchangedMessage)")
                         }
                     }
                 } catch {

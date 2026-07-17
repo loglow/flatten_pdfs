@@ -152,11 +152,11 @@ internal sealed class PdfFlattener
 
         if (!IsPdfPath(path))
         {
-            throw new FlattenException("The item is not a PDF file.");
+            throw new FlattenException(Spec.ErrorNotPdf);
         }
         if (!File.Exists(path))
         {
-            throw new FlattenException("The PDF could not be opened.");
+            throw new FlattenException(Spec.ErrorCannotOpen);
         }
 
         byte[] input;
@@ -166,7 +166,7 @@ internal sealed class PdfFlattener
         }
         catch
         {
-            throw new FlattenException("The PDF could not be opened.");
+            throw new FlattenException(Spec.ErrorCannotOpen);
         }
 
         // Load from memory (rather than by path) so .NET handles Unicode file
@@ -181,15 +181,14 @@ internal sealed class PdfFlattener
             if (document == IntPtr.Zero)
             {
                 throw Pdfium.FPDF_GetLastError() == FPDF_ERR_PASSWORD
-                    ? new FlattenException(
-                        "The PDF is encrypted or locked. Unlock it first, then try again.")
-                    : new FlattenException("The PDF could not be opened.");
+                    ? new FlattenException(Spec.ErrorLocked)
+                    : new FlattenException(Spec.ErrorCannotOpen);
             }
 
             int pageCount = Pdfium.FPDF_GetPageCount(document);
             if (pageCount <= 0)
             {
-                throw new FlattenException("The PDF contains no pages.");
+                throw new FlattenException(Spec.ErrorNoPages);
             }
 
             (int flattenableCount, int linkCount) = CountAnnotations(document, pageCount);
@@ -209,13 +208,13 @@ internal sealed class PdfFlattener
                 IntPtr page = Pdfium.FPDF_LoadPage(document, i);
                 if (page == IntPtr.Zero)
                 {
-                    throw new FlattenException($"Page {i + 1} could not be read.");
+                    throw new FlattenException(string.Format(Spec.ErrorPageReadFailed, i + 1));
                 }
                 try
                 {
                     if (Pdfium.FPDFPage_Flatten(page, FLAT_NORMALDISPLAY) == FLATTEN_FAIL)
                     {
-                        throw new FlattenException($"Page {i + 1} could not be flattened.");
+                        throw new FlattenException(string.Format(Spec.ErrorPageFlattenFailed, i + 1));
                     }
                 }
                 finally
@@ -225,7 +224,7 @@ internal sealed class PdfFlattener
             }
 
             byte[] output = SaveDocument(document)
-                ?? throw new FlattenException("A flattened PDF could not be created.");
+                ?? throw new FlattenException(Spec.ErrorSaveFailed);
 
             // Validate the new PDF fully before touching the original: it
             // must reopen, keep the same page count, and retain no
@@ -265,7 +264,7 @@ internal sealed class PdfFlattener
             IntPtr page = Pdfium.FPDF_LoadPage(document, i);
             if (page == IntPtr.Zero)
             {
-                throw new FlattenException($"Page {i + 1} could not be read.");
+                throw new FlattenException(string.Format(Spec.ErrorPageReadFailed, i + 1));
             }
             try
             {
@@ -342,8 +341,7 @@ internal sealed class PdfFlattener
 
     private static int ValidateOutput(byte[] output, int expectedPageCount)
     {
-        const string failed =
-            "The flattened PDF failed validation, so the original was not changed.";
+        string failed = Spec.ErrorValidationFailed;
 
         GCHandle handle = GCHandle.Alloc(output, GCHandleType.Pinned);
         IntPtr document = IntPtr.Zero;
@@ -451,8 +449,7 @@ internal sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         BackColor = SystemColors.Window,
         ForeColor = SystemColors.WindowText,
-        // 8.25 pt = 11 px, matching the Mac app's 11 px monospaced log font.
-        Font = new Font("Consolas", 8.25f),
+        Font = new Font("Consolas", Spec.LogFontSize * PointScale),
         Dock = DockStyle.Fill,
         TabStop = false
     };
@@ -467,6 +464,9 @@ internal sealed class MainForm : Form
     // not, and WinForms' form auto-scaling is unreliable for hand-built
     // forms. So the actual DPI is measured once and every pixel dimension is
     // multiplied explicitly through Px().
+    // macOS point sizes convert to Windows font points at 72/96.
+    private const float PointScale = 0.75f;
+
     private readonly float _scale;
 
     private int Px(int value) => (int)MathF.Round(value * _scale);
@@ -480,8 +480,8 @@ internal sealed class MainForm : Form
 
     private readonly Label _detail = new()
     {
-        Text = "Annotations will be flattened and each PDF will be permanently updated.",
-        Font = new Font("Segoe UI", 9.75f),
+        Text = Spec.DropDetail,
+        Font = new Font("Segoe UI", Spec.DetailFontSize * PointScale),
         ForeColor = SystemColors.GrayText,
         AutoSize = true,
         // Anchor None centers an auto-sized control in its table cell.
@@ -490,13 +490,13 @@ internal sealed class MainForm : Form
 
     private readonly Button _openButton = new()
     {
-        Text = "Select PDFs...",
+        Text = Spec.SelectPdfsButton,
         AutoSize = true
     };
 
     private readonly Button _clearButton = new()
     {
-        Text = "Clear Log",
+        Text = Spec.ClearLogButton,
         AutoSize = true
     };
 
@@ -524,7 +524,7 @@ internal sealed class MainForm : Form
 
     private void BuildInterface()
     {
-        Text = "Flatten PDFs";
+        Text = Spec.Name;
         StartPosition = FormStartPosition.CenterScreen;
         try
         {
@@ -557,7 +557,7 @@ internal sealed class MainForm : Form
         // The whole window is the drop target; the content sits directly on
         // the form. The active-drop outline is painted in _content's padding
         // ring (see OnContentPaint).
-        _content.Padding = new Padding(Px(20));
+        _content.Padding = new Padding(Px(Spec.Padding));
         _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
         _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         _content.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -567,18 +567,18 @@ internal sealed class MainForm : Form
 
         Label title = new()
         {
-            Text = "Drop PDF files here",
-            Font = new Font("Segoe UI Semibold", 18f),
+            Text = Spec.DropTitle,
+            Font = new Font("Segoe UI Semibold", Spec.TitleFontSize * PointScale),
             AutoSize = true,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, Px(12))
+            Margin = new Padding(0, 0, 0, Px(Spec.Spacing))
         };
 
-        _detail.Margin = new Padding(0, 0, 0, Px(12));
+        _detail.Margin = new Padding(0, 0, 0, Px(Spec.Spacing));
 
         _openButton.Click += OnOpen;
         _openButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
-        _openButton.Margin = new Padding(0, 0, Px(8), 0);
+        _openButton.Margin = new Padding(0, 0, Px(Spec.ButtonGap), 0);
         _clearButton.Click += (_, _) => _log.Clear();
         _clearButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
         _clearButton.Margin = new Padding(0);
@@ -588,7 +588,7 @@ internal sealed class MainForm : Form
             AutoSize = true,
             FlowDirection = FlowDirection.LeftToRight,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, Px(20))
+            Margin = new Padding(0, 0, 0, Px(Spec.SpacingAfterButtons))
         };
         buttons.Controls.Add(_openButton);
         buttons.Controls.Add(_clearButton);
@@ -608,8 +608,8 @@ internal sealed class MainForm : Form
         // 650x430 (min 520x360) means matching the *content* area below the
         // menu.
         int menuHeight = menu.PreferredSize.Height;
-        ClientSize = new Size(Px(650), Px(430) + menuHeight);
-        MinimumSize = new Size(Px(520), Px(360) + menuHeight);
+        ClientSize = new Size(Px(Spec.WindowWidth), Px(Spec.WindowHeight) + menuHeight);
+        MinimumSize = new Size(Px(Spec.MinWindowWidth), Px(Spec.MinWindowHeight) + menuHeight);
 
         // Accept drops anywhere over the window and its content.
         EnableDrop(this);
@@ -696,7 +696,7 @@ internal sealed class MainForm : Form
         }
         Rectangle bounds = _content.ClientRectangle;
         bounds.Inflate(-Px(2), -Px(2));
-        using Pen pen = new(SystemColors.Highlight, 3f * _scale);
+        using Pen pen = new(SystemColors.Highlight, Spec.DropOutlineWidth * _scale);
         e.Graphics.DrawRectangle(pen, bounds);
     }
 
@@ -729,7 +729,7 @@ internal sealed class MainForm : Form
     {
         MessageBox.Show(
             this,
-            $"Flatten PDFs {Application.ProductVersion}",
+            $"{Spec.Name} {Spec.Version}",
             "About Flatten PDFs",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
@@ -762,7 +762,7 @@ internal sealed class MainForm : Form
         string[] pdfs = [.. files.Where(PdfFlattener.IsPdfPath)];
         if (pdfs.Length == 0)
         {
-            AppendLog("No PDF files were selected.");
+            AppendLog(Spec.NoPdfsSelected);
             return;
         }
 
@@ -800,7 +800,7 @@ internal sealed class MainForm : Form
     {
         if (!result.Changed)
         {
-            return $"{MarkSkip} {name}{Dash}no flattenable annotations; unchanged.";
+            return $"{MarkSkip} {name}{Dash}{Spec.UnchangedMessage}";
         }
 
         string annotations = result.FlattenedAnnotationCount == 1 ? "annotation" : "annotations";

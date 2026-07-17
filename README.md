@@ -3,6 +3,13 @@
 > **Windows?** A native Windows version with the same behavior lives in
 > [`windows/`](windows/) — see [windows/README.md](windows/README.md).
 
+> **Shared spec:** both apps compile their user-facing strings, layout
+> metrics, and version from [`shared/app-spec.json`](shared/app-spec.json).
+> After editing it, run `python3 shared/generate.py` (the macOS builder does
+> this automatically) to regenerate `Spec.swift` / `Spec.cs` and restamp the
+> version; the generated files are committed so the Windows build needs no
+> extra tooling.
+
 A small native macOS app that accepts one or more PDFs by:
 
 - dragging them onto the app icon;

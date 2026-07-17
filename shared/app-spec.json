@@ -1,0 +1,39 @@
+{
+  "name": "Flatten PDFs",
+  "version": "1.7",
+  "buildNumber": 8,
+  "strings": {
+    "dropTitle": "Drop PDF files here",
+    "dropDetail": "Annotations will be flattened and each PDF will be permanently updated.",
+    "selectPdfsButton": "Select PDFs…",
+    "clearLogButton": "Clear Log",
+    "noPdfsSelected": "No PDF files were selected.",
+    "unchangedMessage": "no flattenable annotations; unchanged.",
+    "errorNotPdf": "The item is not a PDF file.",
+    "errorCannotOpen": "The PDF could not be opened.",
+    "errorLocked": "The PDF is encrypted or locked. Unlock it first, then try again.",
+    "errorNoPages": "The PDF contains no pages.",
+    "errorCannotCreateOutput": "A temporary output PDF could not be created.",
+    "errorPageReadFailed": "Page {n} could not be read.",
+    "errorPageFlattenFailed": "Page {n} could not be flattened.",
+    "errorSaveFailed": "A flattened PDF could not be created.",
+    "errorValidationFailed": "The flattened PDF failed validation, so the original was not changed."
+  },
+  "layout": {
+    "windowWidth": 650,
+    "windowHeight": 430,
+    "minWindowWidth": 520,
+    "minWindowHeight": 360,
+    "padding": 20,
+    "spacing": 12,
+    "spacingAfterButtons": 20,
+    "buttonGap": 8,
+    "titleFontSize": 24,
+    "detailFontSize": 13,
+    "logFontSize": 11,
+    "detailMaxWidth": 520,
+    "logMinHeight": 170,
+    "dropOutlineWidth": 3,
+    "dropOutlineCornerRadius": 10
+  }
+}
