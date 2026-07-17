@@ -23,6 +23,7 @@ struct Spec: Decodable {
         let clearLogButton: String
         let noPdfsSelected: String
         let unchangedMessage: String
+        let finishingBeforeQuit: String
         let errorNotPdf: String
         let errorCannotOpen: String
         let errorLocked: String
@@ -516,7 +517,7 @@ private final class DropView: NSView {
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dropView = DropView(frame: .zero)
-    private let workerQueue = DispatchQueue(label: "FlattenPDFs.worker", qos: .userInitiated)
+    private let workerQueue = DispatchQueue(label: "worker", qos: .userInitiated)
     private let flattener = PDFFlattener()
     private var window: NSWindow?
     private var launched = false
@@ -555,8 +556,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installMainMenu() {
-        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? ProcessInfo.processInfo.processName
+        let appName = spec.name
         let mainMenu = NSMenu()
 
         let applicationMenuItem = NSMenuItem(title: appName,
@@ -649,7 +649,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         // original can be corrupted, but remaining files would silently go
         // unprocessed. Finish the batch, then complete the termination.
         terminationRequested = true
-        dropView.appendLog("Finishing the current batch before quitting…")
+        dropView.appendLog(spec.strings.finishingBeforeQuit)
         return .terminateLater
     }
 

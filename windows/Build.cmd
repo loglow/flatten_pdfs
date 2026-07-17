@@ -1,16 +1,16 @@
 @echo off
 setlocal enableextensions
-title Build Flatten PDFs
+title Build
 
-rem Builds Flatten PDFs.exe with the .NET SDK and, on the first run, downloads
-rem the PDFium engine (pdfium.dll) it depends on.
+rem Builds the app (named by shared/app-spec.json) with the .NET SDK and, on
+rem the first run, downloads the PDFium engine (pdfium.dll) it depends on.
 
 set "ROOT=%~dp0"
 set "OUT=%ROOT%build"
 set "PDFIUM=%ROOT%lib\pdfium.dll"
 
 echo.
-echo Building Flatten PDFs...
+echo Building...
 echo.
 
 rem --- Check for the .NET SDK (version 10 or later) ---
@@ -40,7 +40,7 @@ if not exist "%PDFIUM%" (
 )
 
 rem --- Build ---
-dotnet publish "%ROOT%FlattenPDFs.csproj" -c Release -o "%OUT%" -p:DebugType=None
+dotnet publish "%ROOT%App.csproj" -c Release -o "%OUT%" -p:DebugType=None
 if errorlevel 1 (
     echo.
     echo Build failed.
@@ -53,9 +53,13 @@ rem --- Remove intermediate build files; build\ holds the finished app ---
 rd /s /q "%ROOT%bin" >nul 2>nul
 rd /s /q "%ROOT%obj" >nul 2>nul
 
+rem The exe is named from the spec; find it rather than hardcoding the name.
+set "EXE="
+for %%F in ("%OUT%\*.exe") do set "EXE=%%F"
+
 echo.
 echo Built successfully:
-echo   "%OUT%\Flatten PDFs.exe"
+echo   "%EXE%"
 echo.
 echo Everything is packed into that single exe. Move it anywhere, pin it to
 echo the Start menu or taskbar, drag PDF files onto it, or open it and drop
@@ -64,7 +68,7 @@ echo.
 echo Note: running the app on a machine without the .NET Desktop Runtime
 echo prompts with a free download link the first time.
 echo.
-if not defined CI explorer /select,"%OUT%\Flatten PDFs.exe"
+if not defined CI explorer /select,"%EXE%"
 if not defined CI pause
 exit /b 0
 

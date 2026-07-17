@@ -16,8 +16,8 @@
 // vector content, and FPDF_SaveAsCopy preserves page rotation and document
 // metadata automatically.
 //
-// The app targets modern .NET (see FlattenPDFs.csproj) and is built with the
-// .NET SDK via "Build Flatten PDFs.cmd". Running it requires the free .NET
+// The app targets modern .NET (see App.csproj) and is built with the
+// .NET SDK via "Build.cmd". Running it requires the free .NET
 // Desktop Runtime; the only other dependency is pdfium.dll beside the
 // executable, which the build script downloads once.
 
@@ -27,7 +27,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using ComIDataObject = System.Runtime.InteropServices.ComTypes.IDataObject;
 
-namespace FlattenPDFs;
+namespace App;
 
 // ---------------------------------------------------------------------------
 // Shared spec.
@@ -35,7 +35,7 @@ namespace FlattenPDFs;
 // shared/app-spec.json is the single source of truth for the user-facing
 // strings, layout metrics (macOS points == 96-DPI pixels), and version
 // shared with the macOS app. The build embeds it into the executable (see
-// FlattenPDFs.csproj); it is deserialized once at startup. Each app declares
+// App.csproj); it is deserialized once at startup. Each app declares
 // only the fields it uses -- unknown JSON keys are ignored.
 // ---------------------------------------------------------------------------
 internal static class Spec
@@ -72,6 +72,7 @@ internal static class Spec
         public string ClearLogButton { get; set; } = "";
         public string NoPdfsSelected { get; set; } = "";
         public string UnchangedMessage { get; set; } = "";
+        public string QuitConfirmMessage { get; set; } = "";
         public string ErrorNotPdf { get; set; } = "";
         public string ErrorCannotOpen { get; set; } = "";
         public string ErrorLocked { get; set; } = "";
@@ -596,7 +597,7 @@ internal sealed class MainForm : Form
         }
         BuildInterface();
 
-        new Thread(WorkerLoop) { IsBackground = true, Name = "FlattenPDFs.worker" }.Start();
+        new Thread(WorkerLoop) { IsBackground = true, Name = "worker" }.Start();
     }
 
     private void BuildInterface()
@@ -621,7 +622,7 @@ internal sealed class MainForm : Form
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
         fileMenu.DropDownItems.Add(exitItem);
 
-        ToolStripMenuItem aboutItem = new("&About Flatten PDFs");
+        ToolStripMenuItem aboutItem = new("&About " + Spec.Name);
         aboutItem.Click += OnAbout;
         ToolStripMenuItem helpMenu = new("&Help");
         helpMenu.DropDownItems.Add(aboutItem);
@@ -817,7 +818,7 @@ internal sealed class MainForm : Form
         MessageBox.Show(
             this,
             $"{Spec.Name} {Spec.Version}",
-            "About Flatten PDFs",
+            "About " + Spec.Name,
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
     }
@@ -828,8 +829,8 @@ internal sealed class MainForm : Form
         {
             DialogResult answer = MessageBox.Show(
                 this,
-                "Files are still being processed. Quit anyway?",
-                "Flatten PDFs",
+                Spec.Strings.QuitConfirmMessage,
+                Spec.Name,
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
             if (answer != DialogResult.Yes)

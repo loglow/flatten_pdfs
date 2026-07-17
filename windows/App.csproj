@@ -7,8 +7,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>Flatten PDFs</AssemblyName>
-    <RootNamespace>FlattenPDFs</RootNamespace>
+    <RootNamespace>App</RootNamespace>
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <!-- SystemAware (the WinForms default) renders correctly under every
          scaling regime, including the legacy "custom scaling" factor some
@@ -17,12 +16,16 @@
          the window itself, which always yields the right physical size. -->
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
 
-    <Product>Flatten PDFs</Product>
-    <AssemblyTitle>Flatten PDFs</AssemblyTitle>
-    <!-- The version comes from shared/app-spec.json (which must stay
-         pretty-printed for this match). The strings and layout metrics in
-         that file are read at runtime from the embedded copy below. -->
-    <SpecVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../shared/app-spec.json')), '(?&lt;="version": ")[^"]+'))</SpecVersion>
+    <!-- The app name and version come from shared/app-spec.json (which must
+         stay pretty-printed for these matches), so the executable is named
+         from the spec. The strings and layout metrics in that file are read
+         at runtime from the embedded copy below. -->
+    <SpecJson>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../shared/app-spec.json'))</SpecJson>
+    <SpecName>$([System.Text.RegularExpressions.Regex]::Match($(SpecJson), '(?&lt;="name": ")[^"]+'))</SpecName>
+    <SpecVersion>$([System.Text.RegularExpressions.Regex]::Match($(SpecJson), '(?&lt;="version": ")[^"]+'))</SpecVersion>
+    <AssemblyName>$(SpecName)</AssemblyName>
+    <Product>$(SpecName)</Product>
+    <AssemblyTitle>$(SpecName)</AssemblyTitle>
     <Version>$(SpecVersion).0</Version>
     <InformationalVersion>$(SpecVersion)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
@@ -48,7 +51,7 @@
     <!-- The shared spec, embedded into the executable and read at startup. -->
     <EmbeddedResource Include="..\shared\app-spec.json" LogicalName="app-spec.json" />
 
-    <!-- The PDFium engine, downloaded once by "Build Flatten PDFs.cmd".
+    <!-- The PDFium engine, downloaded once by "Build.cmd".
          Link flattens it out of lib\ so it lands directly beside the
          executable, where DllImport("pdfium.dll") looks for it. -->
     <Content Include="lib\pdfium.dll" Link="pdfium.dll"

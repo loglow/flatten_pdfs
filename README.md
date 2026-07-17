@@ -17,11 +17,11 @@ follow the system light/dark appearance.
 Each platform builds with one double-click and puts the finished app in a
 `build` folder next to the script.
 
-**macOS** — run `mac/Build Flatten PDFs.command`. Needs only Apple's Command
+**macOS** — run `mac/Build.command`. Needs only Apple's Command
 Line Developer Tools (macOS offers to install them). The app uses system
 frameworks alone: AppKit, PDFKit, Core Graphics.
 
-**Windows** — run `windows\Build Flatten PDFs.cmd`. Needs the free
+**Windows** — run `windows\Build.cmd`. Needs the free
 [.NET SDK](https://dotnet.microsoft.com/download/dotnet) version 10 or later
 (`winget install Microsoft.DotNet.SDK.10`); the script explains this if it
 is missing, and on first run downloads PDFium — the PDF engine used inside
@@ -57,4 +57,9 @@ One file per platform: [`mac/Sources/main.swift`](mac/Sources/main.swift)
 (Swift, PDFKit) and
 [`windows/Sources/Program.cs`](windows/Sources/Program.cs) (C#, Windows
 Forms, PDFium via P/Invoke; project file
-[`windows/FlattenPDFs.csproj`](windows/FlattenPDFs.csproj)).
+[`windows/App.csproj`](windows/App.csproj)).
+
+The app's name, version, strings, and layout all come from the shared spec,
+so the plumbing (`App.csproj`, `Build.command` / `Build.cmd`, `app.icns` /
+`app.ico`) is name-agnostic and reusable as a starting point for other
+small two-platform apps.

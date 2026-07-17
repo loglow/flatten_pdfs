@@ -9,6 +9,8 @@
     "clearLogButton": "Clear Log",
     "noPdfsSelected": "No PDF files were selected.",
     "unchangedMessage": "no flattenable annotations; unchanged.",
+    "quitConfirmMessage": "Files are still being processed. Quit anyway?",
+    "finishingBeforeQuit": "Finishing the current batch before quitting…",
     "errorNotPdf": "The item is not a PDF file.",
     "errorCannotOpen": "The PDF could not be opened.",
     "errorLocked": "The PDF is encrypted or locked. Unlock it first, then try again.",

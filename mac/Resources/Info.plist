@@ -13,7 +13,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleIconFile</key>
-    <string>FlattenPDFs</string>
+    <string>app</string>
     <key>CFBundleName</key>
     <string>Flatten PDFs</string>
     <key>CFBundlePackageType</key>

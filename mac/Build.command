@@ -3,13 +3,22 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 OUT="$ROOT/build"
-APP="$OUT/Flatten PDFs.app"
 SOURCES="$ROOT/Sources"
 PLIST="$ROOT/Resources/Info.plist"
-ICON="$ROOT/Resources/FlattenPDFs.icns"
+ICON="$ROOT/Resources/app.icns"
 SPEC="$ROOT/../shared/app-spec.json"
 
-printf '\nBuilding Flatten PDFs…\n\n'
+# The app's identity comes from the shared spec: the bundle and display name
+# verbatim, the executable name with spaces stripped, and the bundle
+# identifier as a lowercase slug.
+NAME="$(plutil -extract name raw -o - "$SPEC")"
+VERSION="$(plutil -extract version raw -o - "$SPEC")"
+BUILDNUM="$(plutil -extract buildNumber raw -o - "$SPEC")"
+EXEC="$(printf '%s' "$NAME" | tr -d ' ')"
+SLUG="$(printf '%s' "$NAME" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')"
+APP="$OUT/$NAME.app"
+
+printf '\nBuilding %s…\n\n' "$NAME"
 
 if ! command -v xcrun >/dev/null 2>&1 || ! xcrun --find swiftc >/dev/null 2>&1; then
     echo "Apple's Command Line Developer Tools are required."
@@ -30,17 +39,19 @@ xcrun swiftc \
     -framework PDFKit \
     -framework CoreGraphics \
     "$SOURCES"/*.swift \
-    -o "$APP/Contents/MacOS/FlattenPDFs"
+    -o "$APP/Contents/MacOS/$EXEC"
 
 cp "$PLIST" "$APP/Contents/Info.plist"
-cp "$ICON" "$APP/Contents/Resources/FlattenPDFs.icns"
+cp "$ICON" "$APP/Contents/Resources/app.icns"
 
 # The shared spec rides along as a bundle resource (the app reads it at
-# launch), and its version stamps the bundle's Info.plist.
+# launch), and stamps the bundle's identity and version.
 cp "$SPEC" "$APP/Contents/Resources/app-spec.json"
-VERSION="$(plutil -extract version raw -o - "$SPEC")"
-BUILDNUM="$(plutil -extract buildNumber raw -o - "$SPEC")"
 /usr/libexec/PlistBuddy \
+    -c "Set :CFBundleName $NAME" \
+    -c "Set :CFBundleDisplayName $NAME" \
+    -c "Set :CFBundleExecutable $EXEC" \
+    -c "Set :CFBundleIdentifier local.$SLUG.app" \
     -c "Set :CFBundleShortVersionString $VERSION" \
     -c "Set :CFBundleVersion $BUILDNUM" \
     "$APP/Contents/Info.plist"
