@@ -54,6 +54,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem --- Ensure the XAML resource index made it into the output ---
+rem dotnet publish of unpackaged WinUI apps has been known to omit
+rem resources.pri, which makes every window fail to load at runtime
+rem (XamlParseException in InitializeComponent). Recover it from the
+rem intermediate output when missing.
+if not exist "%OUT%\resources.pri" (
+    for /r "%ROOT%bin" %%F in (resources.pri) do if exist "%%F" copy /y "%%F" "%OUT%\resources.pri" >nul
+)
+if not exist "%OUT%\resources.pri" (
+    echo WARNING: resources.pri was not produced; the app will not start.
+)
+
 rem --- Remove intermediate build files; build\ holds the finished app ---
 rd /s /q "%ROOT%bin" >nul 2>nul
 rd /s /q "%ROOT%obj" >nul 2>nul
