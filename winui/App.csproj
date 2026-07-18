@@ -34,17 +34,20 @@
     <InformationalVersion>$(SpecVersion)</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
-    <!-- Lets the project restore/compile on non-Windows machines (used as a
-         syntax/API check from macOS); harmless on Windows. PRI resource
-         generation runs a Windows-only tool, so it is skipped elsewhere;
-         only real Windows builds produce the runnable output. -->
+    <!-- Unlike the winforms target, this project only BUILDS on Windows: the
+         XAML compiler is a Windows executable. EnableWindowsTargeting still
+         allows restore-level dependency checks from other machines. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <GeneratePriFile Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</GeneratePriFile>
-    <EnableCoreMrtTooling Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</EnableCoreMrtTooling>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260710003" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MainWindow.xaml is picked up by the SDK's default Page globbing;
+         only the application definition needs declaring. -->
+    <ApplicationDefinition Include="Sources\App.xaml" />
   </ItemGroup>
 
   <ItemGroup>

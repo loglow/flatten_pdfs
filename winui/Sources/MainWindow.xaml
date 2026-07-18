@@ -1,0 +1,68 @@
+<Window
+    x:Class="App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Structure and theme brushes live here; all text, sizes, and spacing
+         come from the shared spec, assigned in code-behind. -->
+    <Grid x:Name="Root" AllowDrop="True"
+          DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <MenuBar x:Name="Menu">
+            <MenuBarItem Title="File">
+                <MenuFlyoutItem x:Name="OpenItem" Text="Open..." Click="OnOpenClick">
+                    <MenuFlyoutItem.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control" Key="O" />
+                    </MenuFlyoutItem.KeyboardAccelerators>
+                </MenuFlyoutItem>
+                <MenuFlyoutSeparator />
+                <MenuFlyoutItem Text="Exit" Click="OnExitClick" />
+            </MenuBarItem>
+            <MenuBarItem Title="Help">
+                <MenuFlyoutItem x:Name="AboutItem" Click="OnAboutClick" />
+            </MenuBarItem>
+        </MenuBar>
+
+        <!-- The accent outline shown while a valid drag is over the window. -->
+        <Border x:Name="Outline" Grid.Row="1" Margin="4" CornerRadius="8"
+                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                BorderThickness="0">
+            <Grid x:Name="ContentGrid">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock x:Name="TitleText" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" />
+
+                <TextBlock x:Name="DetailText" Grid.Row="1"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           HorizontalAlignment="Center" />
+
+                <StackPanel x:Name="Buttons" Grid.Row="2" Orientation="Horizontal"
+                            HorizontalAlignment="Center">
+                    <Button x:Name="SelectButton" Click="OnOpenClick" />
+                    <Button x:Name="ClearButton" Click="OnClearClick" />
+                </StackPanel>
+
+                <Border Grid.Row="3" CornerRadius="8" BorderThickness="1"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                    <ScrollViewer x:Name="LogScroller"
+                                  VerticalScrollBarVisibility="Auto" Padding="8">
+                        <TextBlock x:Name="LogText" FontFamily="Consolas"
+                                   IsTextSelectionEnabled="True" TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
