@@ -480,6 +480,22 @@ internal sealed class MainForm : Form
         _openButton.Enabled = !busy;
         _openMenuItem.Enabled = !busy;
     }
+
+    // SetColorMode(System) evaluates the system theme only when called, so
+    // re-apply it when Windows broadcasts a theme change; without this the
+    // app keeps its launch-time theme for its whole lifetime.
+    private const int WM_SETTINGCHANGE = 0x001A;
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (m.Msg == WM_SETTINGCHANGE && m.LParam != IntPtr.Zero &&
+            "ImmersiveColorSet".Equals(Marshal.PtrToStringUni(m.LParam),
+                                       StringComparison.OrdinalIgnoreCase))
+        {
+            Application.SetColorMode(SystemColorMode.System);
+        }
+    }
 }
 
 // Relays drag events to the shell's drag-image helper so the translucent
