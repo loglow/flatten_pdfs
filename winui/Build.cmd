@@ -1,14 +1,16 @@
 @echo off
 setlocal enableextensions
-rem Running from a network share (e.g. a VM shared folder) leaves cmd without
-rem a valid working directory; pushd maps one to a temporary drive letter.
-pushd "%~dp0" >nul 2>nul
 title Build
 
 rem Builds the app (named by shared/app-spec.json) with the .NET SDK and, on
 rem the first run, downloads the PDFium engine (pdfium.dll) it depends on.
 
 set "ROOT=%~dp0"
+rem ROOT must be captured before pushd: %~dp0 of a relatively-invoked script
+rem re-resolves against the current directory at every expansion. The pushd
+rem gives cmd a valid working directory when run from a network share (e.g.
+rem a VM shared folder) by mapping a temporary drive letter.
+pushd "%ROOT%" >nul 2>nul
 set "OUT=%ROOT%build"
 set "PDFIUM=%ROOT%lib\pdfium.dll"
 
