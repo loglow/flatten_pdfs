@@ -28,6 +28,7 @@
     "minWindowHeight": 360,
     "padding": 20,
     "spacing": 12,
+    "spacingAfterTitle": 8,
     "spacingAfterButtons": 20,
     "buttonGap": 8,
     "titleFontSize": 24,

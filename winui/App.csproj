@@ -12,7 +12,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>App</RootNamespace>
-    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
     <!-- Unpackaged (plain-exe) deployment: the Windows App SDK bootstrapper
@@ -65,8 +65,7 @@
              Condition="Exists('lib\pdfium.dll')" />
 
     <!-- Beside the exe for AppWindow.SetIcon (the window/taskbar icon). -->
-    <Content Include="Resources\app.ico" Link="app.ico"
-             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -184,7 +184,7 @@ internal sealed class MainForm : Form
             Font = new Font("Segoe UI Semibold", Spec.Layout.TitleFontSize * PointScale),
             AutoSize = true,
             Anchor = AnchorStyles.None,
-            Margin = new Padding(0, 0, 0, Px(Spec.Layout.Spacing))
+            Margin = new Padding(0, 0, 0, Px(Spec.Layout.SpacingAfterTitle))
         };
 
         _detail.Margin = new Padding(0, 0, 0, Px(Spec.Layout.Spacing));

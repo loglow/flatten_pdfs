@@ -3,9 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 OUT="$ROOT/build"
-SOURCES="$ROOT/Sources"
-PLIST="$ROOT/Resources/Info.plist"
-ICON="$ROOT/Resources/app.icns"
+PLIST="$ROOT/Info.plist"
+ICON="$ROOT/app.icns"
 SPEC="$ROOT/../shared/app-spec.json"
 
 # The app's identity comes from the shared spec: the bundle and display name
@@ -38,7 +37,7 @@ xcrun swiftc \
     -framework AppKit \
     -framework PDFKit \
     -framework CoreGraphics \
-    "$SOURCES"/*.swift \
+    "$ROOT"/*.swift \
     -o "$APP/Contents/MacOS/$EXEC"
 
 cp "$PLIST" "$APP/Contents/Info.plist"

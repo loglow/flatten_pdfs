@@ -59,8 +59,8 @@ spec, rebuild, and every app updates.
 
 ## Source
 
-The UI lives in [`mac/Sources/main.swift`](mac/Sources/main.swift) (Swift,
-PDFKit), [`winforms/Sources/Program.cs`](winforms/Sources/Program.cs) (C#,
+The UI lives in [`mac/main.swift`](mac/main.swift) (Swift,
+PDFKit), [`winforms/Program.cs`](winforms/Program.cs) (C#,
 Windows Forms), and [`winui/`](winui/) (C#, WinUI 3 —
 conventional XAML plus code-behind at the project root, where its build
 targets expect them). The two Windows targets share their

@@ -40,6 +40,7 @@ struct Spec: Decodable {
         let minWindowHeight: CGFloat
         let padding: CGFloat
         let spacing: CGFloat
+        let spacingAfterTitle: CGFloat
         let spacingAfterButtons: CGFloat
         let buttonGap: CGFloat
         let titleFontSize: CGFloat
@@ -424,6 +425,7 @@ private final class DropView: NSView {
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = spec.layout.spacing
+        stack.setCustomSpacing(spec.layout.spacingAfterTitle, after: titleLabel)
         stack.setCustomSpacing(spec.layout.spacingAfterButtons, after: buttonStack)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)

@@ -77,6 +77,10 @@ public sealed partial class MainWindow : Window
         TitleText.FontSize = Spec.Layout.TitleFontSize;
         DetailText.Text = Spec.Strings.DropDetail;
         DetailText.FontSize = Spec.Layout.DetailFontSize;
+        // The grid's uniform RowSpacing over-spaces the title-detail gap;
+        // this margin closes it to spacingAfterTitle.
+        DetailText.Margin = new Thickness(
+            0, Spec.Layout.SpacingAfterTitle - Spec.Layout.Spacing, 0, 0);
         SelectButton.Content = Spec.Strings.SelectPdfsButton;
         ClearButton.Content = Spec.Strings.ClearLogButton;
         LogText.FontSize = Spec.Layout.LogFontSize * ConsolasCorrection;
@@ -110,11 +114,12 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += OnClosing;
 
         // Same starting and minimum sizes as the macOS app, plus the menu
-        // bar's height (the Mac has no in-window menu bar). The menu height
-        // is estimated first and corrected once it has a real layout size.
+        // bar's height (the Mac has no in-window menu bar). The pre-show
+        // sizing uses an estimated menu height; after the first real layout
+        // the client height is corrected so the content area below the menu
+        // matches the spec exactly.
         ApplyWindowSize((int)(40 * _scale));
-        Menu.Loaded += (_, _) =>
-            ApplyWindowSize((int)MathF.Round((float)(Menu.ActualHeight * _scale)));
+        ContentGrid.Loaded += (_, _) => CorrectWindowSize();
 
         new Thread(WorkerLoop) { IsBackground = true, Name = "worker" }.Start();
 
@@ -132,6 +137,27 @@ public sealed partial class MainWindow : Window
         AppWindow.ResizeClient(new SizeInt32(
             Px(Spec.Layout.WindowWidth),
             Px(Spec.Layout.WindowHeight) + menuHeightPx));
+        ApplyMinimumSize(menuHeightPx);
+    }
+
+    // Measures the real content area after layout and nudges the client
+    // height by the difference, absorbing any estimation error in the menu
+    // height or theme-dependent chrome.
+    private void CorrectWindowSize()
+    {
+        int targetContent = Px(Spec.Layout.WindowHeight);
+        int actualContent = (int)MathF.Round((float)(ContentGrid.ActualHeight * _scale));
+        int difference = targetContent - actualContent;
+        if (difference != 0)
+        {
+            SizeInt32 client = AppWindow.ClientSize;
+            AppWindow.ResizeClient(new SizeInt32(client.Width, client.Height + difference));
+        }
+        ApplyMinimumSize((int)MathF.Round((float)(Menu.ActualHeight * _scale)));
+    }
+
+    private void ApplyMinimumSize(int menuHeightPx)
+    {
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             // The preferred minimums are outer-window sizes; add the
