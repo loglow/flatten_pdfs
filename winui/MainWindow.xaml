@@ -5,7 +5,10 @@
 
     <!-- Structure and theme brushes live here; all text, sizes, and spacing
          come from the shared spec, assigned in code-behind. -->
-    <Grid x:Name="Root" AllowDrop="True"
+    <!-- The explicit Transparent background keeps the whole surface
+         hit-testable for drag-and-drop (a null background is not) while
+         letting the Mica backdrop show through. -->
+    <Grid x:Name="Root" Background="Transparent" AllowDrop="True"
           DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -27,10 +30,7 @@
             </MenuBarItem>
         </MenuBar>
 
-        <!-- The accent outline shown while a valid drag is over the window. -->
-        <Border x:Name="Outline" Grid.Row="1" Margin="4" CornerRadius="8"
-                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                BorderThickness="0">
+        <Grid Grid.Row="1">
             <Grid x:Name="ContentGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -63,6 +63,14 @@
                     </ScrollViewer>
                 </Border>
             </Grid>
-        </Border>
+
+            <!-- The accent outline shown while a valid drag is over the
+                 window: an overlay, so toggling it never reflows the
+                 content beneath. -->
+            <Border x:Name="Outline" Margin="4" CornerRadius="8"
+                    IsHitTestVisible="False"
+                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                    BorderThickness="0" />
+        </Grid>
     </Grid>
 </Window>

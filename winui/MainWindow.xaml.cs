@@ -39,6 +39,10 @@ public sealed partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);
 
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr hwnd, int attribute, ref int value, int size);
+
     [DllImport("user32.dll")]
     private static extern bool MessageBeep(uint type);
 
@@ -46,6 +50,7 @@ public sealed partial class MainWindow : Window
 
     private readonly PdfFlattener _flattener = new();
     private readonly BlockingCollection<string[]> _queue = [];
+    private readonly IntPtr _hwnd;
     private readonly float _scale;
 
     private int _activeBatches;
@@ -59,7 +64,12 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         Title = Spec.Name;
-        _scale = GetDpiForWindow(WindowNative.GetWindowHandle(this)) / 96f;
+        _hwnd = WindowNative.GetWindowHandle(this);
+        _scale = GetDpiForWindow(_hwnd) / 96f;
+
+        // The system title bar does not follow the app theme on its own.
+        ApplyTitleBarTheme();
+        Root.ActualThemeChanged += (_, _) => ApplyTitleBarTheme();
 
         // Everything the spec owns: strings, fonts, spacing.
         AboutItem.Text = "About " + Spec.Name;
@@ -116,13 +126,31 @@ public sealed partial class MainWindow : Window
 
     private void ApplyWindowSize(int menuHeightPx)
     {
-        AppWindow.Resize(new SizeInt32(
+        // ResizeClient sizes the content area (like WinForms ClientSize);
+        // Resize would include the title bar and borders, shrinking the
+        // content relative to the other targets.
+        AppWindow.ResizeClient(new SizeInt32(
             Px(Spec.Layout.WindowWidth),
             Px(Spec.Layout.WindowHeight) + menuHeightPx));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            presenter.PreferredMinimumWidth = Px(Spec.Layout.MinWindowWidth);
-            presenter.PreferredMinimumHeight = Px(Spec.Layout.MinWindowHeight) + menuHeightPx;
+            // The preferred minimums are outer-window sizes; add the
+            // measured chrome so the minimum *content* matches the spec.
+            int chromeWidth = AppWindow.Size.Width - AppWindow.ClientSize.Width;
+            int chromeHeight = AppWindow.Size.Height - AppWindow.ClientSize.Height;
+            presenter.PreferredMinimumWidth = Px(Spec.Layout.MinWindowWidth) + chromeWidth;
+            presenter.PreferredMinimumHeight =
+                Px(Spec.Layout.MinWindowHeight) + menuHeightPx + chromeHeight;
+        }
+    }
+
+    private void ApplyTitleBarTheme()
+    {
+        // Attribute 20 on Windows 10 1903+/11; 19 on 1809.
+        int dark = Root.ActualTheme == ElementTheme.Dark ? 1 : 0;
+        if (DwmSetWindowAttribute(_hwnd, 20, ref dark, 4) != 0)
+        {
+            _ = DwmSetWindowAttribute(_hwnd, 19, ref dark, 4);
         }
     }
 
