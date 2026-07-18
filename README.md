@@ -61,8 +61,9 @@ spec, rebuild, and every app updates.
 
 The UI lives in [`mac/Sources/main.swift`](mac/Sources/main.swift) (Swift,
 PDFKit), [`winforms/Sources/Program.cs`](winforms/Sources/Program.cs) (C#,
-Windows Forms), and [`winui/Sources/`](winui/Sources/) (C#, WinUI 3 —
-conventional XAML plus code-behind). The two Windows targets share their
+Windows Forms), and [`winui/`](winui/) (C#, WinUI 3 —
+conventional XAML plus code-behind at the project root, where its build
+targets expect them). The two Windows targets share their
 non-UI core — spec loader, PDFium interop, and the flattening engine — via
 [`shared/Core.cs`](shared/Core.cs), compiled into both projects.
 

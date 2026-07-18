@@ -44,19 +44,14 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- The default globbing includes every .xaml as a Page (its App.xaml
-         special-casing only covers the project root, not subfolders), so
-         reclassify ours as the application definition, the item that makes
-         the XAML compiler generate the entry point. -->
-    <Page Remove="Sources\App.xaml" />
-    <ApplicationDefinition Include="Sources\App.xaml" />
-  </ItemGroup>
+  <!-- The XAML files sit at the project root, the layout the WinUI build
+       targets are designed around: App.xaml is picked up as the application
+       definition and MainWindow.xaml as a Page with no declarations here. -->
 
   <ItemGroup>
     <!-- The non-UI core (spec loader, PDFium interop, flattening engine),
          shared with the winforms target. -->
-    <Compile Include="..\shared\Core.cs" Link="Sources\Core.cs" />
+    <Compile Include="..\shared\Core.cs" Link="Core.cs" />
 
     <!-- The shared spec, embedded into the executable and read at startup. -->
     <EmbeddedResource Include="..\shared\app-spec.json" LogicalName="app-spec.json" />
