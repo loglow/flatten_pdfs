@@ -44,11 +44,9 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- MainWindow.xaml is picked up by the SDK's default Page globbing;
-         only the application definition needs declaring. -->
-    <ApplicationDefinition Include="Sources\App.xaml" />
-  </ItemGroup>
+  <!-- The XAML files need no declarations: the SDK's default globbing picks
+       up MainWindow.xaml as a Page and App.xaml (matched by name, anywhere
+       in the tree) as the application definition. -->
 
   <ItemGroup>
     <!-- The non-UI core (spec loader, PDFium interop, flattening engine),
