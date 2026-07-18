@@ -528,12 +528,17 @@ internal sealed class MainForm : Form
         BackColor = SystemColors.Control;
         ForeColor = SystemColors.ControlText;
         _detail.ForeColor = SystemColors.GrayText;
-        _log.BackColor = SystemColors.Window;
-        _log.ForeColor = SystemColors.WindowText;
 
         _openButton.RefreshHandle();
         _clearButton.RefreshHandle();
         _log.RefreshHandle();
+
+        // Assign the log's colors as resolved RGB values: reassigning the
+        // same named SystemColor is a no-op (the setter compares by name),
+        // which left the cached background brush -- visible in the empty
+        // area below the text -- holding the previous theme's color.
+        _log.BackColor = Color.FromArgb(SystemColors.Window.ToArgb());
+        _log.ForeColor = Color.FromArgb(SystemColors.WindowText.ToArgb());
 
         int dark = Application.IsDarkModeEnabled ? 1 : 0;
         if (DwmSetWindowAttribute(Handle, 20, ref dark, 4) != 0)
