@@ -45,7 +45,13 @@ if not exist "%PDFIUM%" (
 )
 
 rem --- Build ---
-dotnet publish "%ROOT%App.csproj" -c Release -o "%OUT%" -p:DebugType=None
+rem The output folder of a plain build is used as the deliverable rather
+rem than dotnet publish: for unpackaged WinUI, the build output is exactly
+rem what Visual Studio runs (the most-tested deployment shape), while the
+rem publish flow has a history of producing folders whose windows fail to
+rem load at runtime.
+if exist "%OUT%" rd /s /q "%OUT%"
+dotnet build "%ROOT%App.csproj" -c Release -p:DebugType=None
 if errorlevel 1 (
     echo.
     echo Build failed.
@@ -54,16 +60,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem --- Ensure the XAML resource index made it into the output ---
-rem dotnet publish of unpackaged WinUI apps has been known to omit
-rem resources.pri, which makes every window fail to load at runtime
-rem (XamlParseException in InitializeComponent). Recover it from the
-rem intermediate output when missing.
-if not exist "%OUT%\resources.pri" (
-    for /r "%ROOT%bin" %%F in (resources.pri) do if exist "%%F" copy /y "%%F" "%OUT%\resources.pri" >nul
+rem Locate the built exe's folder under bin\ and mirror it into build\.
+set "SRC="
+for /r "%ROOT%bin" %%F in (*.exe) do set "SRC=%%~dpF"
+if not defined SRC (
+    echo.
+    echo Build produced no executable.
+    echo.
+    if not defined CI pause
+    exit /b 1
 )
+xcopy "%SRC%*" "%OUT%\" /e /i /y /q >nul
 if not exist "%OUT%\resources.pri" (
-    echo WARNING: resources.pri was not produced; the app will not start.
+    echo WARNING: resources.pri is missing from the output; the app will not start.
 )
 
 rem --- Remove intermediate build files; build\ holds the finished app ---
