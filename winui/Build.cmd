@@ -1,5 +1,8 @@
 @echo off
 setlocal enableextensions
+rem Running from a network share (e.g. a VM shared folder) leaves cmd without
+rem a valid working directory; pushd maps one to a temporary drive letter.
+pushd "%~dp0" >nul 2>nul
 title Build
 
 rem Builds the app (named by shared/app-spec.json) with the .NET SDK and, on

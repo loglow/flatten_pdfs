@@ -47,7 +47,7 @@
   <ItemGroup>
     <!-- The default globbing includes every .xaml as a Page (its App.xaml
          special-casing only covers the project root, not subfolders), so
-         reclassify ours as the application definition -- the item that makes
+         reclassify ours as the application definition, the item that makes
          the XAML compiler generate the entry point. -->
     <Page Remove="Sources\App.xaml" />
     <ApplicationDefinition Include="Sources\App.xaml" />
