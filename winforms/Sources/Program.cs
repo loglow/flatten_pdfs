@@ -481,48 +481,6 @@ internal sealed class MainForm : Form
         _openMenuItem.Enabled = !busy;
     }
 
-    // SetColorMode(System) evaluates the system theme only when called, so
-    // re-apply it when Windows broadcasts a theme change; without this the
-    // app keeps its launch-time theme for its whole lifetime.
-    private const int WM_SETTINGCHANGE = 0x001A;
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(
-        IntPtr hwnd, int attribute, ref int value, int size);
-
-    protected override void WndProc(ref Message m)
-    {
-        base.WndProc(ref m);
-        if (m.Msg == WM_SETTINGCHANGE && m.LParam != IntPtr.Zero &&
-            "ImmersiveColorSet".Equals(Marshal.PtrToStringUni(m.LParam),
-                                       StringComparison.OrdinalIgnoreCase))
-        {
-            Application.SetColorMode(SystemColorMode.System);
-            RefreshTheme();
-        }
-    }
-
-    // Re-applying the color mode remaps the system palette, but existing
-    // controls keep their creation-time colors (menus repaint live, which is
-    // why they alone follow). Reassigning the ambient system colors bakes in
-    // the new palette, the DWM attribute re-themes the title bar, and a full
-    // invalidate repaints the native-drawn controls.
-    private void RefreshTheme()
-    {
-        BackColor = SystemColors.Control;
-        ForeColor = SystemColors.ControlText;
-        _detail.ForeColor = SystemColors.GrayText;
-        _log.BackColor = SystemColors.Window;
-        _log.ForeColor = SystemColors.WindowText;
-
-        int dark = Application.IsDarkModeEnabled ? 1 : 0;
-        if (DwmSetWindowAttribute(Handle, 20, ref dark, 4) != 0)
-        {
-            _ = DwmSetWindowAttribute(Handle, 19, ref dark, 4);
-        }
-
-        Invalidate(true);
-    }
 }
 
 // Relays drag events to the shell's drag-image helper so the translucent
@@ -651,9 +609,10 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        // Follow the system light/dark setting, including changes while the
-        // app is running. (Still marked experimental; see WFO5001 in the
-        // project file.)
+        // Follow the system light/dark setting as of launch. Re-applying the
+        // color mode while running is not safe in the current experimental
+        // implementation (WFO5001): re-theming attempts left controls
+        // unresponsive, so a theme change takes effect on the next launch.
         Application.SetColorMode(SystemColorMode.System);
         Application.Run(new MainForm(args));
     }
