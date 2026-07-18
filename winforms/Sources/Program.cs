@@ -101,13 +101,13 @@ internal sealed class MainForm : Form
         Anchor = AnchorStyles.None
     };
 
-    private readonly Button _openButton = new()
+    private readonly ThemedButton _openButton = new()
     {
         Text = Spec.Strings.SelectPdfsButton,
         AutoSize = true
     };
 
-    private readonly Button _clearButton = new()
+    private readonly ThemedButton _clearButton = new()
     {
         Text = Spec.Strings.ClearLogButton,
         AutoSize = true
@@ -481,6 +481,75 @@ internal sealed class MainForm : Form
         _openMenuItem.Enabled = !busy;
     }
 
+    // ------- Live theme switching -------
+    //
+    // Windows broadcasts ImmersiveColorSet several times per theme flip, so
+    // the refresh is debounced onto a quiet message pump (re-theming inside
+    // the burst has left controls unresponsive). Re-applying the color mode
+    // remaps the palette; menus repaint live, ambient colors are reassigned
+    // under the new mapping, and the controls whose dark rendering is baked
+    // at handle creation (buttons, the log and its scrollbar) get their
+    // handles recreated, which preserves their state.
+
+    private const int WM_SETTINGCHANGE = 0x001A;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr hwnd, int attribute, ref int value, int size);
+
+    private readonly System.Windows.Forms.Timer _themeDebounce = new() { Interval = 250 };
+    private bool _themeDebounceWired;
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (m.Msg == WM_SETTINGCHANGE && m.LParam != IntPtr.Zero &&
+            "ImmersiveColorSet".Equals(Marshal.PtrToStringUni(m.LParam),
+                                       StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_themeDebounceWired)
+            {
+                _themeDebounceWired = true;
+                _themeDebounce.Tick += (_, _) =>
+                {
+                    _themeDebounce.Stop();
+                    RefreshTheme();
+                };
+            }
+            _themeDebounce.Stop();
+            _themeDebounce.Start();
+        }
+    }
+
+    private void RefreshTheme()
+    {
+        Application.SetColorMode(SystemColorMode.System);
+
+        BackColor = SystemColors.Control;
+        ForeColor = SystemColors.ControlText;
+        _detail.ForeColor = SystemColors.GrayText;
+        _log.BackColor = SystemColors.Window;
+        _log.ForeColor = SystemColors.WindowText;
+
+        _openButton.RefreshHandle();
+        _clearButton.RefreshHandle();
+        _log.RefreshHandle();
+
+        int dark = Application.IsDarkModeEnabled ? 1 : 0;
+        if (DwmSetWindowAttribute(Handle, 20, ref dark, 4) != 0)
+        {
+            _ = DwmSetWindowAttribute(Handle, 19, ref dark, 4);
+        }
+
+        Invalidate(true);
+    }
+}
+
+// A Button that can recreate its native handle, re-baking the theme-
+// dependent rendering chosen at handle creation.
+internal sealed class ThemedButton : Button
+{
+    public void RefreshHandle() => RecreateHandle();
 }
 
 // Relays drag events to the shell's drag-image helper so the translucent
@@ -590,6 +659,8 @@ internal static class DragImage
 // mouse selection and Ctrl+C continue to work normally.
 internal sealed class LogBox : TextBox
 {
+    public void RefreshHandle() => RecreateHandle();
+
     [DllImport("user32.dll")]
     private static extern bool HideCaret(IntPtr hWnd);
 
@@ -609,10 +680,9 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        // Follow the system light/dark setting as of launch. Re-applying the
-        // color mode while running is not safe in the current experimental
-        // implementation (WFO5001): re-theming attempts left controls
-        // unresponsive, so a theme change takes effect on the next launch.
+        // Follow the system light/dark setting. Live changes are handled by
+        // MainForm's debounced WM_SETTINGCHANGE refresh; the experimental
+        // color mode (WFO5001) does not re-apply itself.
         Application.SetColorMode(SystemColorMode.System);
         Application.Run(new MainForm(args));
     }
