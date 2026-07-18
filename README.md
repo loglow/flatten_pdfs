@@ -21,21 +21,27 @@ Each platform builds with one double-click and puts the finished app in a
 Line Developer Tools (macOS offers to install them). The app uses system
 frameworks alone: AppKit, PDFKit, Core Graphics.
 
-**Windows** — run `windows\Build.cmd`. Needs the free
+**Windows** has two interchangeable builds, both needing the free
 [.NET SDK](https://dotnet.microsoft.com/download/dotnet) version 10 or later
-(`winget install Microsoft.DotNet.SDK.10`); the script explains this if it
-is missing, and on first run downloads PDFium — the PDF engine used inside
-Edge and Chrome. Everything, PDFium included, is packed into the single
-`Flatten PDFs.exe`. Machines that only run the app need the free .NET
-Desktop Runtime; launching without it shows a download prompt.
+(`winget install Microsoft.DotNet.SDK.10`; each script explains this if it
+is missing and downloads PDFium — the PDF engine used inside Edge and
+Chrome — on first run):
+
+- `winforms\Build.cmd` — the classic-look build. Everything, PDFium
+  included, is packed into a single `Flatten PDFs.exe`. Running needs only
+  the free .NET Desktop Runtime (prompted with a download link if missing).
+- `winui\Build.cmd` — the modern Fluent build (WinUI 3): Mica window
+  backdrop, themed dialogs, native drag visuals. WinUI cannot pack into a
+  single exe, so the output is a folder to keep together, and running also
+  needs the free Windows App Runtime (likewise prompted).
 
 ## Shared spec
 
-`shared/app-spec.json` is the single source of truth for both apps'
+`shared/app-spec.json` is the single source of truth for every target's
 user-facing strings, layout metrics, and version. The macOS app carries it
-as a bundle resource, the Windows app embeds it in the executable, both read
-it at startup, and each build stamps the version from it. Edit the spec,
-rebuild, and both apps update.
+as a bundle resource, the Windows apps embed it in their executables, all
+read it at startup, and each build stamps the version from it. Edit the
+spec, rebuild, and every app updates.
 
 ## Important limitations
 
@@ -53,13 +59,15 @@ rebuild, and both apps update.
 
 ## Source
 
-One file per platform: [`mac/Sources/main.swift`](mac/Sources/main.swift)
-(Swift, PDFKit) and
-[`windows/Sources/Program.cs`](windows/Sources/Program.cs) (C#, Windows
-Forms, PDFium via P/Invoke; project file
-[`windows/App.csproj`](windows/App.csproj)).
+One UI file per target: [`mac/Sources/main.swift`](mac/Sources/main.swift)
+(Swift, PDFKit), [`winforms/Sources/Program.cs`](winforms/Sources/Program.cs)
+(C#, Windows Forms), and
+[`winui/Sources/Program.cs`](winui/Sources/Program.cs) (C#, WinUI 3, built
+in code without XAML). The two Windows targets share their non-UI core —
+spec loader, PDFium interop, and the flattening engine — via
+[`shared/Core.cs`](shared/Core.cs), compiled into both projects.
 
 The app's name, version, strings, and layout all come from the shared spec,
 so the plumbing (`App.csproj`, `Build.command` / `Build.cmd`, `app.icns` /
 `app.ico`) is name-agnostic and reusable as a starting point for other
-small two-platform apps.
+small multi-target apps.

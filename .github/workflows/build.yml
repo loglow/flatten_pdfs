@@ -30,8 +30,8 @@ jobs:
           name: Flatten-PDFs-macOS
           path: Flatten-PDFs-macOS.zip
 
-  windows:
-    name: Windows
+  winforms:
+    name: Windows (WinForms)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -43,10 +43,31 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "windows\Build.cmd"
+          call "winforms\Build.cmd"
           exit /b %ERRORLEVEL%
 
       - uses: actions/upload-artifact@v7
         with:
-          name: Flatten-PDFs-Windows
-          path: windows/build/
+          name: Flatten-PDFs-WinForms
+          path: winforms/build/
+
+  winui:
+    name: Windows (WinUI)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        shell: cmd
+        run: |
+          call "winui\Build.cmd"
+          exit /b %ERRORLEVEL%
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Flatten-PDFs-WinUI
+          path: winui/build/

@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <UseWinUI>true</UseWinUI>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>App</RootNamespace>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+
+    <!-- Unpackaged (plain-exe) deployment: the Windows App SDK bootstrapper
+         is initialized automatically at startup and, when the Windows App
+         Runtime is missing, shows an install prompt with a download link
+         (the same pattern as the .NET Desktop Runtime). -->
+    <WindowsPackageType>None</WindowsPackageType>
+
+    <!-- The app name and version come from shared/app-spec.json (which must
+         stay pretty-printed for these matches), so the executable is named
+         from the spec. The strings and layout metrics in that file are read
+         at runtime from the embedded copy below. -->
+    <SpecJson>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../shared/app-spec.json'))</SpecJson>
+    <SpecName>$([System.Text.RegularExpressions.Regex]::Match($(SpecJson), '(?&lt;="name": ")[^"]+'))</SpecName>
+    <SpecVersion>$([System.Text.RegularExpressions.Regex]::Match($(SpecJson), '(?&lt;="version": ")[^"]+'))</SpecVersion>
+    <AssemblyName>$(SpecName)</AssemblyName>
+    <Product>$(SpecName)</Product>
+    <AssemblyTitle>$(SpecName)</AssemblyTitle>
+    <Version>$(SpecVersion).0</Version>
+    <InformationalVersion>$(SpecVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <!-- Lets the project restore/compile on non-Windows machines (used as a
+         syntax/API check from macOS); harmless on Windows. PRI resource
+         generation runs a Windows-only tool, so it is skipped elsewhere;
+         only real Windows builds produce the runnable output. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GeneratePriFile Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</GeneratePriFile>
+    <EnableCoreMrtTooling Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</EnableCoreMrtTooling>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260710003" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The non-UI core (spec loader, PDFium interop, flattening engine),
+         shared with the winforms target. -->
+    <Compile Include="..\shared\Core.cs" Link="Sources\Core.cs" />
+
+    <!-- The shared spec, embedded into the executable and read at startup. -->
+    <EmbeddedResource Include="..\shared\app-spec.json" LogicalName="app-spec.json" />
+
+    <!-- The PDFium engine, downloaded once by "Build.cmd". Link flattens it
+         out of lib\ so it lands directly beside the executable, where
+         DllImport("pdfium.dll") looks for it. -->
+    <Content Include="lib\pdfium.dll" Link="pdfium.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             Condition="Exists('lib\pdfium.dll')" />
+
+    <!-- Beside the exe for AppWindow.SetIcon (the window/taskbar icon). -->
+    <Content Include="Resources\app.ico" Link="app.ico"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

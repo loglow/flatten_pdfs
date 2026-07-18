@@ -48,6 +48,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The non-UI core (spec loader, PDFium interop, flattening engine),
+         shared with the winui target. -->
+    <Compile Include="..\shared\Core.cs" Link="Sources\Core.cs" />
+
     <!-- The shared spec, embedded into the executable and read at startup. -->
     <EmbeddedResource Include="..\shared\app-spec.json" LogicalName="app-spec.json" />
 
