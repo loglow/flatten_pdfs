@@ -1,7 +1,7 @@
 {
   "name": "Flatten PDFs",
-  "version": "1.7",
-  "buildNumber": 8,
+  "version": "1.8",
+  "buildNumber": 9,
   "strings": {
     "dropTitle": "Drop PDF files here",
     "dropDetail": "Annotations will be flattened and each PDF will be permanently updated.",

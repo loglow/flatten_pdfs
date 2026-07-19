@@ -23,7 +23,7 @@
     <key>CFBundleVersion</key>
     <string>8</string>
     <key>LSMinimumSystemVersion</key>
-    <string>10.15</string>
+    <string>11.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSSupportsOpeningDocumentsInPlace</key>

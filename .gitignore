@@ -1,5 +1,4 @@
 *.DS_Store
-Flatten PDFs.app
 
 # Build outputs and intermediates, plus the downloaded pdfium.dll
 mac/build/

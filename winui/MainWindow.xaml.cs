@@ -6,7 +6,6 @@
 // winforms target, no drag-image helper is needed -- and dialogs, controls,
 // and the Mica backdrop all follow the system theme automatically.
 
-using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
@@ -22,14 +21,6 @@ namespace App;
 
 public sealed partial class MainWindow : Window
 {
-    // Status markers in the log, written as Unicode escapes so the source
-    // file's encoding never affects them: check mark, en dash, ballot X, and
-    // an em-dash separator.
-    private const string MarkOk = "\u2713";   // check mark
-    private const string MarkSkip = "\u2013"; // en dash
-    private const string MarkFail = "\u2717"; // ballot X
-    private const string Dash = " \u2014 ";    // em-dash separator
-
     // Consolas renders visually smaller than the Mac's SF Mono at the same
     // nominal size; matched by eye against the Mac app. (WinUI font sizes
     // and layout units are effective pixels, so spec values are used
@@ -52,12 +43,10 @@ public sealed partial class MainWindow : Window
 
     private const uint MB_ICONASTERISK = 0x40;
 
-    private readonly PdfFlattener _flattener = new();
-    private readonly BlockingCollection<string[]> _queue = [];
+    private readonly FlattenWorker _worker;
     private readonly IntPtr _hwnd;
     private readonly float _scale;
 
-    private int _activeBatches;
     private bool _dragHighlighted;
     private bool _closeConfirmed;
 
@@ -132,11 +121,20 @@ public sealed partial class MainWindow : Window
         ApplyWindowSize((int)(40 * _scale));
         ContentGrid.Loaded += (_, _) => CorrectWindowSize();
 
-        new Thread(WorkerLoop) { IsBackground = true, Name = "worker" }.Start();
+        _worker = new FlattenWorker(
+            line => DispatcherQueue.TryEnqueue(() => AppendLog(line)),
+            busy => DispatcherQueue.TryEnqueue(() =>
+            {
+                SetBusy(busy);
+                if (!busy)
+                {
+                    MessageBeep(MB_ICONASTERISK);
+                }
+            }));
 
         if (initialFiles.Length > 0)
         {
-            EnqueueBatch(initialFiles);
+            _worker.Enqueue(initialFiles);
         }
     }
 
@@ -219,7 +217,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var items = await e.DataView.GetStorageItemsAsync();
-            EnqueueBatch([.. items.Select(item => item.Path)]);
+            _worker.Enqueue(items.Select(item => item.Path));
         }
         finally
         {
@@ -247,7 +245,7 @@ public sealed partial class MainWindow : Window
         var files = await picker.PickMultipleFilesAsync();
         if (files.Count > 0)
         {
-            EnqueueBatch([.. files.Select(file => file.Path)]);
+            _worker.Enqueue(files.Select(file => file.Path));
         }
     }
 
@@ -269,9 +267,9 @@ public sealed partial class MainWindow : Window
 
     private void OnClosing(AppWindow sender, AppWindowClosingEventArgs e)
     {
-        if (_activeBatches == 0 || _closeConfirmed)
+        if (!_worker.IsBusy || _closeConfirmed)
         {
-            _queue.CompleteAdding();
+            _worker.Complete();
             return;
         }
         e.Cancel = true;
@@ -294,72 +292,6 @@ public sealed partial class MainWindow : Window
             Close();
         }
     }
-
-    // ------- Work queue -------
-
-    private void EnqueueBatch(IReadOnlyList<string> files)
-    {
-        string[] pdfs = [.. files.Where(PdfFlattener.IsPdfPath)];
-        if (pdfs.Length == 0)
-        {
-            AppendLog(Spec.Strings.NoPdfsSelected);
-            return;
-        }
-
-        Interlocked.Increment(ref _activeBatches);
-        SetBusy(true);
-        _queue.Add(pdfs);
-    }
-
-    private void WorkerLoop()
-    {
-        foreach (string[] batch in _queue.GetConsumingEnumerable())
-        {
-            foreach (string path in batch)
-            {
-                string name = Path.GetFileName(path);
-                try
-                {
-                    FlattenResult result = _flattener.FlattenInPlace(path);
-                    PostLog(FormatResult(name, result));
-                }
-                catch (Exception error)
-                {
-                    PostLog($"{MarkFail} {name}{Dash}{error.Message}");
-                }
-            }
-
-            if (Interlocked.Decrement(ref _activeBatches) == 0)
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    SetBusy(false);
-                    MessageBeep(MB_ICONASTERISK);
-                });
-            }
-        }
-    }
-
-    private static string FormatResult(string name, FlattenResult result)
-    {
-        if (!result.Changed)
-        {
-            return $"{MarkSkip} {name}{Dash}{Spec.Strings.UnchangedMessage}";
-        }
-
-        string annotations = result.FlattenedAnnotationCount == 1 ? "annotation" : "annotations";
-        string pages = result.PageCount == 1 ? "page" : "pages";
-        string line = $"{MarkOk} {name}{Dash}flattened {result.FlattenedAnnotationCount} " +
-                      $"{annotations} on {result.PageCount} {pages}.";
-        if (result.RemovedLinkCount > 0)
-        {
-            string links = result.RemovedLinkCount == 1 ? "hyperlink" : "hyperlinks";
-            line += $" Note: {result.RemovedLinkCount} {links} removed.";
-        }
-        return line;
-    }
-
-    private void PostLog(string line) => DispatcherQueue.TryEnqueue(() => AppendLog(line));
 
     private void AppendLog(string line)
     {

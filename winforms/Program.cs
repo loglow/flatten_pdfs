@@ -17,11 +17,10 @@
 // metadata automatically.
 //
 // The app targets modern .NET (see App.csproj) and is built with the
-// .NET SDK via "Build.cmd". Running it requires the free .NET
-// Desktop Runtime; the only other dependency is pdfium.dll beside the
-// executable, which the build script downloads once.
+// .NET SDK via "Build.cmd", which downloads PDFium once and publishes a
+// single self-contained-looking exe with the engine embedded. Running it
+// requires only the free .NET Desktop Runtime.
 
-using System.Collections.Concurrent;
 using System.Drawing.Drawing2D;
 using System.Media;
 using System.Runtime.InteropServices;
@@ -34,16 +33,7 @@ namespace App;
 // ---------------------------------------------------------------------------
 internal sealed class MainForm : Form
 {
-    // Status markers in the log, written as Unicode escapes so the source
-    // file's encoding never affects them: check mark, en dash, ballot X, and
-    // an em-dash separator.
-    private const string MarkOk = "\u2713";   // check mark
-    private const string MarkSkip = "\u2013"; // en dash
-    private const string MarkFail = "\u2717"; // ballot X
-    private const string Dash = " \u2014 ";    // em-dash separator
-
-    private readonly PdfFlattener _flattener = new();
-    private readonly BlockingCollection<string[]> _queue = [];
+    private readonly FlattenWorker _worker;
     private readonly string[] _initialFiles;
 
     // A borderless LogBox (see below) avoids the themed Edit-control frame:
@@ -73,7 +63,6 @@ internal sealed class MainForm : Form
     // not, and WinForms' form auto-scaling is unreliable for hand-built
     // forms. So the actual DPI is measured once and every pixel dimension is
     // multiplied explicitly through Px().
-    // macOS point sizes convert to Windows font points at 72/96.
     private const float PointScale = 0.75f;
 
     // Consolas renders visually smaller than the Mac's SF Mono at the same
@@ -119,7 +108,6 @@ internal sealed class MainForm : Form
         ShortcutKeys = Keys.Control | Keys.O
     };
 
-    private int _activeBatches;
     private bool _dragHighlighted;
 
     public MainForm(string[] initialFiles)
@@ -133,7 +121,22 @@ internal sealed class MainForm : Form
         }
         BuildInterface();
 
-        new Thread(WorkerLoop) { IsBackground = true, Name = "worker" }.Start();
+        _themeDebounce.Tick += (_, _) =>
+        {
+            _themeDebounce.Stop();
+            RefreshTheme();
+        };
+
+        _worker = new FlattenWorker(
+            line => Post(() => AppendLog(line)),
+            busy => Post(() =>
+            {
+                SetBusy(busy);
+                if (!busy)
+                {
+                    SystemSounds.Asterisk.Play();
+                }
+            }));
     }
 
     private void BuildInterface()
@@ -168,8 +171,8 @@ internal sealed class MainForm : Form
         menu.Items.Add(helpMenu);
         MainMenuStrip = menu;
 
-        // The whole window is the drop target; the content sits directly on
-        // the form. The active-drop outline is painted in _content's padding
+        // The content area (the region the outline encloses) is the drop
+        // target; the active-drop outline is painted in _content's padding
         // ring (see OnContentPaint).
         _content.Padding = new Padding(Px(Spec.Layout.Padding));
         _content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -247,7 +250,7 @@ internal sealed class MainForm : Form
         base.OnShown(e);
         if (_initialFiles.Length > 0)
         {
-            EnqueueBatch(_initialFiles);
+            _worker.Enqueue(_initialFiles);
         }
     }
 
@@ -289,7 +292,7 @@ internal sealed class MainForm : Form
         string[] files = GetDroppedFiles(e.Data);
         if (files.Length > 0)
         {
-            EnqueueBatch(files);
+            _worker.Enqueue(files);
         }
     }
 
@@ -401,7 +404,7 @@ internal sealed class MainForm : Form
         };
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            EnqueueBatch(dialog.FileNames);
+            _worker.Enqueue(dialog.FileNames);
         }
     }
 
@@ -417,7 +420,7 @@ internal sealed class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        if (_activeBatches > 0)
+        if (_worker.IsBusy)
         {
             DialogResult answer = MessageBox.Show(
                 this,
@@ -431,79 +434,11 @@ internal sealed class MainForm : Form
                 return;
             }
         }
-        _queue.CompleteAdding();
+        _worker.Complete();
         base.OnFormClosing(e);
     }
 
-    // ------- Work queue -------
-
-    private void EnqueueBatch(string[] files)
-    {
-        string[] pdfs = [.. files.Where(PdfFlattener.IsPdfPath)];
-        if (pdfs.Length == 0)
-        {
-            AppendLog(Spec.Strings.NoPdfsSelected);
-            return;
-        }
-
-        Interlocked.Increment(ref _activeBatches);
-        SetBusy(true);
-        _queue.Add(pdfs);
-    }
-
-    private void WorkerLoop()
-    {
-        foreach (string[] batch in _queue.GetConsumingEnumerable())
-        {
-            foreach (string path in batch)
-            {
-                string name = Path.GetFileName(path);
-                try
-                {
-                    FlattenResult result = _flattener.FlattenInPlace(path);
-                    PostLog(FormatResult(name, result));
-                }
-                catch (Exception error)
-                {
-                    PostLog($"{MarkFail} {name}{Dash}{error.Message}");
-                }
-            }
-
-            if (Interlocked.Decrement(ref _activeBatches) == 0)
-            {
-                PostBatchComplete();
-            }
-        }
-    }
-
-    private static string FormatResult(string name, FlattenResult result)
-    {
-        if (!result.Changed)
-        {
-            return $"{MarkSkip} {name}{Dash}{Spec.Strings.UnchangedMessage}";
-        }
-
-        string annotations = result.FlattenedAnnotationCount == 1 ? "annotation" : "annotations";
-        string pages = result.PageCount == 1 ? "page" : "pages";
-        string line = $"{MarkOk} {name}{Dash}flattened {result.FlattenedAnnotationCount} " +
-                      $"{annotations} on {result.PageCount} {pages}.";
-        if (result.RemovedLinkCount > 0)
-        {
-            string links = result.RemovedLinkCount == 1 ? "hyperlink" : "hyperlinks";
-            line += $" Note: {result.RemovedLinkCount} {links} removed.";
-        }
-        return line;
-    }
-
     // ------- Thread-marshaled UI updates -------
-
-    private void PostLog(string line) => Post(() => AppendLog(line));
-
-    private void PostBatchComplete() => Post(() =>
-    {
-        SetBusy(false);
-        SystemSounds.Asterisk.Play();
-    });
 
     // Marshals an action to the UI thread, tolerating the window being torn
     // down (e.g. the user quit while a batch was still running).
@@ -555,7 +490,6 @@ internal sealed class MainForm : Form
         IntPtr hwnd, int attribute, ref int value, int size);
 
     private readonly System.Windows.Forms.Timer _themeDebounce = new() { Interval = 250 };
-    private bool _themeDebounceWired;
 
     protected override void WndProc(ref Message m)
     {
@@ -564,15 +498,6 @@ internal sealed class MainForm : Form
             "ImmersiveColorSet".Equals(Marshal.PtrToStringUni(m.LParam),
                                        StringComparison.OrdinalIgnoreCase))
         {
-            if (!_themeDebounceWired)
-            {
-                _themeDebounceWired = true;
-                _themeDebounce.Tick += (_, _) =>
-                {
-                    _themeDebounce.Stop();
-                    RefreshTheme();
-                };
-            }
             _themeDebounce.Stop();
             _themeDebounce.Start();
         }

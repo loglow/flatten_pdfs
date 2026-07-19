@@ -1,7 +1,9 @@
 // Shared core for the Windows targets (winforms/ and winui/): the spec
-// loader, the PDFium interop, and the flattening engine. Both project files
-// compile this file alongside their own Sources; nothing in here touches UI.
+// loader, the PDFium interop, the flattening engine, and the work queue
+// with its log formatting. Both project files compile this file alongside
+// their own sources; nothing in here touches UI.
 
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -470,5 +472,100 @@ internal sealed class PdfFlattener
                 }
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Work queue.
+//
+// Runs flatten batches on a background thread and reports ready-formatted
+// log lines. The UI shell provides two callbacks and marshals them to its
+// UI thread itself: log(line), and busy(flag) -- raised true when a batch
+// is queued and false when the last active batch finishes (the shell plays
+// its completion sound on that false).
+// ---------------------------------------------------------------------------
+internal sealed class FlattenWorker
+{
+    // Status markers in the log, written as Unicode escapes so the source
+    // file's encoding never affects them: check mark, en dash, ballot X,
+    // and an em-dash separator.
+    private const string MarkOk = "\u2713";
+    private const string MarkSkip = "\u2013";
+    private const string MarkFail = "\u2717";
+    private const string Dash = " \u2014 ";
+
+    private readonly PdfFlattener _flattener = new();
+    private readonly BlockingCollection<string[]> _queue = [];
+    private readonly Action<string> _log;
+    private readonly Action<bool> _busy;
+    private int _activeBatches;
+
+    public FlattenWorker(Action<string> log, Action<bool> busy)
+    {
+        _log = log;
+        _busy = busy;
+        new Thread(Loop) { IsBackground = true, Name = "worker" }.Start();
+    }
+
+    public bool IsBusy => _activeBatches > 0;
+
+    // Call when the window is closing; lets the worker thread end.
+    public void Complete() => _queue.CompleteAdding();
+
+    public void Enqueue(IEnumerable<string> files)
+    {
+        string[] pdfs = [.. files.Where(PdfFlattener.IsPdfPath)];
+        if (pdfs.Length == 0)
+        {
+            _log(Spec.Strings.NoPdfsSelected);
+            return;
+        }
+
+        Interlocked.Increment(ref _activeBatches);
+        _busy(true);
+        _queue.Add(pdfs);
+    }
+
+    private void Loop()
+    {
+        foreach (string[] batch in _queue.GetConsumingEnumerable())
+        {
+            foreach (string path in batch)
+            {
+                string name = Path.GetFileName(path);
+                try
+                {
+                    _log(FormatResult(name, _flattener.FlattenInPlace(path)));
+                }
+                catch (Exception error)
+                {
+                    _log($"{MarkFail} {name}{Dash}{error.Message}");
+                }
+            }
+
+            if (Interlocked.Decrement(ref _activeBatches) == 0)
+            {
+                _busy(false);
+            }
+        }
+    }
+
+    private static string FormatResult(string name, FlattenResult result)
+    {
+        if (!result.Changed)
+        {
+            return $"{MarkSkip} {name}{Dash}{Spec.Strings.UnchangedMessage}";
+        }
+
+        string annotations = result.FlattenedAnnotationCount == 1 ? "annotation" : "annotations";
+        string pages = result.PageCount == 1 ? "page" : "pages";
+        string line = $"{MarkOk} {name}{Dash}flattened {result.FlattenedAnnotationCount} " +
+                      $"{annotations} on {result.PageCount} {pages}.";
+        if (result.RemovedLinkCount > 0)
+        {
+            string links = result.RemovedLinkCount == 1 ? "hyperlink" : "hyperlinks";
+            line += $" Note: {result.RemovedLinkCount} {links} removed.";
+        }
+        return line;
     }
 }

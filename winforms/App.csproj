@@ -58,9 +58,9 @@
     <!-- The shared spec, embedded into the executable and read at startup. -->
     <EmbeddedResource Include="..\shared\app-spec.json" LogicalName="app-spec.json" />
 
-    <!-- The PDFium engine, downloaded once by "Build.cmd".
-         Link flattens it out of lib\ so it lands directly beside the
-         executable, where DllImport("pdfium.dll") looks for it. -->
+    <!-- The PDFium engine, downloaded once by "Build.cmd". Link flattens
+         it out of lib\ into the build output; single-file publish then
+         embeds it in the exe (IncludeNativeLibrariesForSelfExtract). -->
     <Content Include="lib\pdfium.dll" Link="pdfium.dll"
              CopyToOutputDirectory="PreserveNewest"
              Condition="Exists('lib\pdfium.dll')" />

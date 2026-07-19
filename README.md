@@ -64,7 +64,8 @@ PDFKit), [`winforms/Program.cs`](winforms/Program.cs) (C#,
 Windows Forms), and [`winui/`](winui/) (C#, WinUI 3 —
 conventional XAML plus code-behind at the project root, where its build
 targets expect them). The two Windows targets share their
-non-UI core — spec loader, PDFium interop, and the flattening engine — via
+non-UI core — spec loader, PDFium interop, flattening engine, and work
+queue — via
 [`shared/Core.cs`](shared/Core.cs), compiled into both projects.
 
 The app's name, version, strings, and layout all come from the shared spec,
