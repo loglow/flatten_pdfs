@@ -296,12 +296,8 @@ public sealed partial class MainWindow : Window
     private void AppendLog(string line)
     {
         LogText.Text = LogText.Text.Length == 0 ? line : LogText.Text + "\n" + line;
-        // Scroll to the real bottom after layout has absorbed the new line.
-        // The previous code passed double.MaxValue as the offset before
-        // layout ran, which corrupted the ScrollViewer's indicator state on
-        // every append (scrollbar vanishing until a window resize).
-        LogScroller.UpdateLayout();
-        LogScroller.ChangeView(null, LogScroller.ScrollableHeight, null, disableAnimation: true);
+        // Placing the caret at the end scrolls it into view natively.
+        LogText.Select(LogText.Text.Length, 0);
     }
 
     private void SetBusy(bool busy)

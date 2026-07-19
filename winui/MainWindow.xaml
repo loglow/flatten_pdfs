@@ -66,10 +66,17 @@
                 <Border Grid.Row="3" CornerRadius="8" BorderThickness="1"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                    <ScrollViewer x:Name="LogScroller" Padding="8">
-                        <TextBlock x:Name="LogText" FontFamily="Consolas"
-                                   IsTextSelectionEnabled="True" TextWrapping="Wrap" />
-                    </ScrollViewer>
+                    <!-- A read-only TextBox is WinUI's purpose-built control
+                         for scrollable, selectable text (and mirrors the
+                         winforms log). The earlier hand-rolled
+                         ScrollViewer-around-selectable-TextBlock combination
+                         broke the scrollbar's indicator state on animated
+                         scrolls, on two SDK generations. -->
+                    <TextBox x:Name="LogText" AcceptsReturn="True" IsReadOnly="True"
+                             FontFamily="Consolas" TextWrapping="Wrap"
+                             BorderThickness="0" Background="Transparent"
+                             Padding="8"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
                 </Border>
             </Grid>
 

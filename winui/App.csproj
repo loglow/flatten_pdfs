@@ -45,12 +45,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Pinned to the mature 1.8 line as a bisect test: every working run
-         of this app has been on the brand-new 2.x major (adopted in the
-         same commit as the XAML restructure), and the remaining scrollbar
-         misbehavior follows animated user scrolling (framework territory).
-         Other apps with healthy scrollbars on the test machine are 1.x. -->
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260710003" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
   </ItemGroup>
 
   <!-- The XAML files sit at the project root, the layout the WinUI build
