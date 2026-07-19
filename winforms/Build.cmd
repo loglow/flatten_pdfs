@@ -46,8 +46,21 @@ if not exist "%PDFIUM%" (
     echo.
 )
 
+rem --- Intermediates: local disk when the project lives on a network share ---
+rem The single-file bundler (and MSBuild generally) is unreliable and slow
+rem over SMB shares (e.g. a VM shared folder), so obj/ and bin/ go to the
+rem local temp disk in that case; the finished build\ still lands here.
+set "INTOPTS="
+set "BINROOT=%ROOT%bin"
+if not "%ROOT:~0,2%"=="\\" goto :local_disk
+for %%I in ("%ROOT%..") do set "REPO=%%~nxI"
+set "INTROOT=%TEMP%\build\%REPO%-winforms"
+set "BINROOT=%INTROOT%\bin"
+set "INTOPTS=-p:BaseIntermediateOutputPath="%INTROOT%/obj/" -p:BaseOutputPath="%INTROOT%/bin/""
+:local_disk
+
 rem --- Build ---
-dotnet publish "%ROOT%App.csproj" -c Release -o "%OUT%" -p:DebugType=None
+dotnet publish "%ROOT%App.csproj" -c Release -o "%OUT%" -p:DebugType=None %INTOPTS%
 if errorlevel 1 (
     echo.
     echo Build failed.
@@ -60,6 +73,7 @@ if errorlevel 1 (
 rem --- Remove intermediate build files; build\ holds the finished app ---
 rd /s /q "%ROOT%bin" >nul 2>nul
 rd /s /q "%ROOT%obj" >nul 2>nul
+if defined INTROOT rd /s /q "%INTROOT%" >nul 2>nul
 
 rem The exe is named from the spec; find it rather than hardcoding the name.
 set "EXE="

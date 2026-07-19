@@ -46,6 +46,19 @@ if not exist "%PDFIUM%" (
     echo.
 )
 
+rem --- Intermediates: local disk when the project lives on a network share ---
+rem The single-file bundler (and MSBuild generally) is unreliable and slow
+rem over SMB shares (e.g. a VM shared folder), so obj/ and bin/ go to the
+rem local temp disk in that case; the finished build\ still lands here.
+set "INTOPTS="
+set "BINROOT=%ROOT%bin"
+if not "%ROOT:~0,2%"=="\\" goto :local_disk
+for %%I in ("%ROOT%..") do set "REPO=%%~nxI"
+set "INTROOT=%TEMP%\build\%REPO%-winui"
+set "BINROOT=%INTROOT%\bin"
+set "INTOPTS=-p:BaseIntermediateOutputPath="%INTROOT%/obj/" -p:BaseOutputPath="%INTROOT%/bin/""
+:local_disk
+
 rem --- Build ---
 rem The output folder of a plain build is used as the deliverable rather
 rem than dotnet publish: for unpackaged WinUI, the build output is exactly
@@ -53,7 +66,7 @@ rem what Visual Studio runs (the most-tested deployment shape), while the
 rem publish flow has a history of producing folders whose windows fail to
 rem load at runtime.
 if exist "%OUT%" rd /s /q "%OUT%"
-dotnet build "%ROOT%App.csproj" -c Release -p:DebugType=None
+dotnet build "%ROOT%App.csproj" -c Release -p:DebugType=None %INTOPTS%
 if errorlevel 1 (
     echo.
     echo Build failed.
@@ -65,7 +78,7 @@ if errorlevel 1 (
 
 rem Locate the built exe's folder under bin\ and mirror it into build\.
 set "SRC="
-for /r "%ROOT%bin" %%F in (*.exe) do set "SRC=%%~dpF"
+for /r "%BINROOT%" %%F in (*.exe) do set "SRC=%%~dpF"
 if not defined SRC (
     echo.
     echo Build produced no executable.
@@ -82,6 +95,7 @@ if not exist "%OUT%\resources.pri" (
 rem --- Remove intermediate build files; build\ holds the finished app ---
 rd /s /q "%ROOT%bin" >nul 2>nul
 rd /s /q "%ROOT%obj" >nul 2>nul
+if defined INTROOT rd /s /q "%INTROOT%" >nul 2>nul
 
 rem The exe is named from the spec; find it rather than hardcoding the name.
 set "EXE="
