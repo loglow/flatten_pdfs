@@ -328,6 +328,15 @@ public sealed partial class LogBox : TextBox
             {
                 bar.PointerEntered += (_, _) => ProtectedCursor = ArrowCursor;
                 bar.PointerExited += (_, _) => ProtectedCursor = IBeamCursor;
+
+                // The template's Focused state animates the content host's
+                // RequestedTheme to Light (for the classic light focused
+                // background, which this log overrides to stay dark). The
+                // scrollbar would inherit that and flip to light-theme
+                // colors while focused; a local theme on the bar itself
+                // overrides the inheritance.
+                bar.RequestedTheme = ActualTheme;
+                ActualThemeChanged += (_, _) => bar.RequestedTheme = ActualTheme;
             }
         };
     }
