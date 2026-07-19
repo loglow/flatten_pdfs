@@ -9,7 +9,8 @@ set "ROOT=%~dp0"
 rem ROOT must be captured before pushd: %~dp0 of a relatively-invoked script
 rem re-resolves against the current directory at every expansion. The pushd
 rem gives cmd a valid working directory when run from a network share (e.g.
-rem a VM shared folder) by mapping a temporary drive letter.
+rem a VM shared folder) by mapping a temporary drive letter. Every exit
+rem path runs popd, or the mapping leaks one drive letter per build.
 pushd "%ROOT%" >nul 2>nul
 set "OUT=%ROOT%build"
 set "PDFIUM=%ROOT%lib\pdfium.dll"
@@ -38,6 +39,7 @@ if not exist "%PDFIUM%" (
         echo Then run this builder again.
         echo.
         if not defined CI pause
+        popd >nul 2>nul
         exit /b 1
     )
     echo pdfium.dll ready.
@@ -57,6 +59,7 @@ if errorlevel 1 (
     echo Build failed.
     echo.
     if not defined CI pause
+    popd >nul 2>nul
     exit /b 1
 )
 
@@ -68,6 +71,7 @@ if not defined SRC (
     echo Build produced no executable.
     echo.
     if not defined CI pause
+    popd >nul 2>nul
     exit /b 1
 )
 xcopy "%SRC%*" "%OUT%\" /e /i /y /q >nul
@@ -96,6 +100,7 @@ echo Runtime; if either is missing, launch prompts with a download link.
 echo.
 if not defined CI explorer /select,"%EXE%"
 if not defined CI pause
+popd >nul 2>nul
 exit /b 0
 
 :no_sdk
@@ -107,6 +112,7 @@ echo   https://dotnet.microsoft.com/download/dotnet/10.0
 echo Then run this builder again.
 echo.
 if not defined CI pause
+popd >nul 2>nul
 exit /b 1
 
 rem ---------------------------------------------------------------------------
