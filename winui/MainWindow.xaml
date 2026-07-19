@@ -27,12 +27,20 @@
         </MenuBar>
 
         <!-- The drop zone is the content area only (the region the outline
-             encloses); the menu above it does not accept drops. The explicit
-             Transparent background keeps the whole surface hit-testable for
-             drag-and-drop (a null background is not) while letting the Mica
-             backdrop show through. -->
-        <Grid x:Name="DropZone" Grid.Row="1" Background="Transparent" AllowDrop="True"
-              DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
+             encloses); the menu above it does not accept drops. Fluent
+             layering: the menu sits on bare Mica while the content region
+             rides a Layer surface with rounded shoulders and a hairline top
+             stroke -- the Windows 11 chrome-vs-content idiom (Settings,
+             Notepad). The layer brush also keeps the surface hit-testable
+             for drag-and-drop (a null background is not). -->
+        <Border x:Name="DropZone" Grid.Row="1"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0"
+                CornerRadius="8,8,0,0"
+                AllowDrop="True"
+                DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
+          <Grid>
             <Grid x:Name="ContentGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -56,7 +64,7 @@
                 </StackPanel>
 
                 <Border Grid.Row="3" CornerRadius="8" BorderThickness="1"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                     <ScrollViewer x:Name="LogScroller"
                                   VerticalScrollBarVisibility="Auto" Padding="8">
@@ -68,15 +76,16 @@
 
             <!-- The accent outline shown while a valid drag is over the
                  drop zone: an overlay, so toggling it never reflows the
-                 content beneath. Flush with the window edges; all four
-                 corners round equally, concentric with Windows 11's 8px
-                 window curvature. The brush is assigned in
-                 code from SystemAccentColor (the user's actual accent,
-                 matching the other targets) rather than the
-                 theme-lightened accent fill token. -->
+                 content beneath. Flush with the layer's edges; its corners
+                 match the layer's rounded shoulders and the window's 8px
+                 bottom curvature. The brush is assigned in code from
+                 SystemAccentColor (the user's actual accent, matching the
+                 other targets) rather than the theme-lightened accent fill
+                 token. -->
             <Border x:Name="Outline" CornerRadius="8"
                     IsHitTestVisible="False"
                     BorderThickness="0" />
-        </Grid>
+          </Grid>
+        </Border>
     </Grid>
 </Window>
