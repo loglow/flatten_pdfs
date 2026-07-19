@@ -23,11 +23,8 @@ namespace App;
 
 public sealed partial class MainWindow : Window
 {
-    // Consolas renders visually smaller than the Mac's SF Mono at the same
-    // nominal size; matched by eye against the Mac app. (WinUI font sizes
-    // and layout units are effective pixels, so spec values are used
-    // directly; only the physical-pixel window sizing below needs the DPI.)
-    private const float ConsolasCorrection = 1.2f;
+    // WinUI font sizes and layout units are effective pixels, so spec values
+    // are used directly; only the physical-pixel window sizing needs the DPI.
 
     // The mac app's minimum window reads about this much taller than the
     // outer-based minimum here; matched by eye for cross-target parity.
@@ -83,7 +80,7 @@ public sealed partial class MainWindow : Window
             0, Spec.Layout.SpacingAfterTitle - Spec.Layout.Spacing, 0, 0);
         SelectButton.Content = Spec.Strings.SelectPdfsButton;
         ClearButton.Content = Spec.Strings.ClearLogButton;
-        LogText.FontSize = Spec.Layout.LogFontSize * ConsolasCorrection;
+        LogText.FontSize = Spec.Layout.LogFontSize;
         ContentGrid.Padding = new Thickness(Spec.Layout.Padding);
         ContentGrid.RowSpacing = Spec.Layout.Spacing;
         Buttons.Spacing = Spec.Layout.ButtonGap;

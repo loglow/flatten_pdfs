@@ -48,7 +48,7 @@ internal sealed class MainForm : Form
         BorderStyle = BorderStyle.None,
         BackColor = SystemColors.Window,
         ForeColor = SystemColors.WindowText,
-        Font = new Font("Consolas", Spec.Layout.LogFontSize * PointScale * ConsolasCorrection),
+        Font = new Font("Consolas", Spec.Layout.LogFontSize * PointScale),
         Dock = DockStyle.Fill,
         TabStop = false
     };
@@ -64,11 +64,6 @@ internal sealed class MainForm : Form
     // forms. So the actual DPI is measured once and every pixel dimension is
     // multiplied explicitly through Px().
     private const float PointScale = 0.75f;
-
-    // Consolas renders visually smaller than the Mac's SF Mono at the same
-    // nominal size, so the log font gets this correction on top of the point
-    // conversion -- the 1.2 was matched by eye against the Mac app.
-    private const float ConsolasCorrection = 1.2f;
 
     private readonly float _scale;
 
