@@ -1,16 +1,16 @@
 # Flatten PDFs
 
-Native macOS and Windows apps that flatten PDF annotations — stamps,
-highlights, drawings, text boxes, signatures, and form fields — into
-ordinary page content, replacing each PDF in place.
+Native macOS, Windows, and Linux apps that flatten PDF annotations —
+stamps, highlights, drawings, text boxes, signatures, and form fields —
+into ordinary page content, replacing each PDF in place.
 
-Give either app PDFs by dragging them onto the app icon, dropping them into
-the window, or clicking **Select PDFs…** (**⌘O** / **Ctrl+O**). Each file is
-flattened to a temporary file, validated (it must reopen, keep its page
-count, and contain no remaining annotations), and only then atomically
+Give any of the apps PDFs by dragging them onto the app icon, dropping them
+into the window, or clicking **Select PDFs…** (**⌘O** / **Ctrl+O**). Each
+file is flattened to a temporary file, validated (it must reopen, keep its
+page count, and contain no remaining annotations), and only then atomically
 swapped over the original — a failure leaves the original untouched. Names
-and locations never change, results are reported in the log, and both apps
-follow the system light/dark appearance.
+and locations never change, results are reported in the log, and every app
+follows the system light/dark appearance.
 
 ## Build
 
@@ -35,13 +35,24 @@ Chrome — on first run):
   single exe, so the output is a folder to keep together, and running also
   needs the free Windows App Runtime (likewise prompted).
 
+**Linux** — run `gtk/Build.sh`. The app is a GNOME-style GTK 4 +
+libadwaita app written in Python, so there is nothing to compile: the
+script checks the GTK Python bindings (and names the packages to install
+if they are missing), downloads PDFium on first run, and assembles a
+self-contained `build` folder. Run the launcher inside it (named after the
+app), or copy the generated `.desktop` file into
+`~/.local/share/applications` to add the app to your launcher and to PDF
+"Open With" menus — the Linux equivalent of dragging files onto the app
+icon.
+
 ## Shared spec
 
 `shared/app-spec.json` is the single source of truth for every target's
 user-facing strings, layout metrics, and version. The macOS app carries it
-as a bundle resource, the Windows apps embed it in their executables, all
-read it at startup, and each build stamps the version from it. Edit the
-spec, rebuild, and every app updates.
+as a bundle resource, the Windows apps embed it in their executables, the
+Linux app keeps a copy beside its script, all read it at startup, and each
+build stamps the version from it. Edit the spec, rebuild, and every app
+updates.
 
 ## Important limitations
 
@@ -61,12 +72,14 @@ spec, rebuild, and every app updates.
 
 The UI lives in [`mac/main.swift`](mac/main.swift) (Swift,
 PDFKit), [`winforms/Program.cs`](winforms/Program.cs) (C#,
-Windows Forms), and [`winui/`](winui/) (C#, WinUI 3 —
+Windows Forms), [`winui/`](winui/) (C#, WinUI 3 —
 conventional XAML plus code-behind at the project root, where its build
-targets expect them). The two Windows targets share their
+targets expect them), and [`gtk/main.py`](gtk/main.py) (Python,
+GTK 4 + libadwaita, PDFium via ctypes). The two Windows targets share their
 non-UI core — spec loader, PDFium interop, flattening engine, and work
 queue — via
-[`shared/Core.cs`](shared/Core.cs), compiled into both projects.
+[`shared/Core.cs`](shared/Core.cs), compiled into both projects; the Linux
+app mirrors that core in Python.
 
 The app's name, version, strings, and layout all come from the shared spec,
 so the plumbing (`App.csproj`, `Build.command` / `Build.cmd`, `app.icns` /

@@ -10,3 +10,6 @@ winui/build/
 winui/bin/
 winui/obj/
 winui/lib/
+gtk/build/
+gtk/lib/
+gtk/__pycache__/

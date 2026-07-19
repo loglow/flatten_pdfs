@@ -71,3 +71,27 @@ jobs:
         with:
           name: Flatten-PDFs-WinUI
           path: winui/build/
+
+  gtk:
+    name: Linux (GTK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install GTK dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
+
+      - name: Build
+        run: ./gtk/Build.sh
+
+      # Tar before uploading: artifact packaging alone does not preserve the
+      # launcher's executable permission.
+      - name: Package
+        run: tar -czf Flatten-PDFs-Linux.tar.gz -C gtk/build .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Flatten-PDFs-Linux
+          path: Flatten-PDFs-Linux.tar.gz
