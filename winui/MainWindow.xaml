@@ -67,7 +67,7 @@
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                     <ScrollViewer x:Name="LogScroller"
-                                  VerticalScrollBarVisibility="Auto" Padding="8">
+                                  VerticalScrollBarVisibility="Visible" Padding="8">
                         <TextBlock x:Name="LogText" FontFamily="Consolas"
                                    IsTextSelectionEnabled="True" TextWrapping="Wrap" />
                     </ScrollViewer>
