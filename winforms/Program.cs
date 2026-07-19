@@ -223,7 +223,14 @@ internal sealed class MainForm : Form
         // menu.
         int menuHeight = menu.PreferredSize.Height;
         ClientSize = new Size(Px(Spec.Layout.WindowWidth), Px(Spec.Layout.WindowHeight) + menuHeight);
-        MinimumSize = new Size(Px(Spec.Layout.MinWindowWidth), Px(Spec.Layout.MinWindowHeight) + menuHeight);
+        // MinimumSize is an outer-window size. Adding the horizontal frame
+        // keeps the minimum content width at the spec value (the invisible
+        // resize borders otherwise eat about 7px per side); the height stays
+        // outer-based, the same feel as the mac app's frame-height minimum.
+        int frameWidth = Width - ClientSize.Width;
+        MinimumSize = new Size(
+            Px(Spec.Layout.MinWindowWidth) + frameWidth,
+            Px(Spec.Layout.MinWindowHeight) + menuHeight);
 
         // Accept drops over the content area only -- the same region the
         // outline encloses. The form itself is deliberately not registered:

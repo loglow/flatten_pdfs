@@ -165,13 +165,16 @@ public sealed partial class MainWindow : Window
     {
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
-            // The preferred minimums are outer-window sizes; add the
-            // measured chrome so the minimum *content* matches the spec.
+            // The preferred minimums are outer-window sizes. The width adds
+            // the side borders so the minimum content width stays at the
+            // spec value (matching the other targets); the height is
+            // deliberately outer-based -- spec plus menu, like winforms --
+            // because also adding the title bar read noticeably taller than
+            // the other two side by side.
             int chromeWidth = AppWindow.Size.Width - AppWindow.ClientSize.Width;
-            int chromeHeight = AppWindow.Size.Height - AppWindow.ClientSize.Height;
             presenter.PreferredMinimumWidth = Px(Spec.Layout.MinWindowWidth) + chromeWidth;
             presenter.PreferredMinimumHeight =
-                Px(Spec.Layout.MinWindowHeight) + menuHeightPx + chromeHeight;
+                Px(Spec.Layout.MinWindowHeight) + menuHeightPx;
         }
     }
 
