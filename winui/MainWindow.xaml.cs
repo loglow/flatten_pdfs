@@ -11,6 +11,7 @@ using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
@@ -113,6 +114,8 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "app.ico"));
         AppWindow.Closing += OnClosing;
 
+        LogScroller.Loaded += (_, _) => PinScrollBarIndicator();
+
         // Same starting and minimum sizes as the macOS app, plus the menu
         // bar's height (the Mac has no in-window menu bar). The pre-show
         // sizing uses an estimated menu height; after the first real layout
@@ -180,6 +183,38 @@ public sealed partial class MainWindow : Window
             presenter.PreferredMinimumHeight =
                 Px(Spec.Layout.MinWindowHeight) + menuHeightPx + Px(MacMinHeightParity);
         }
+    }
+
+    // The ScrollViewer drives its ScrollBar's IndicatorMode through a
+    // visual-state machine that can wedge in the hidden NoIndicator state
+    // after wheel or programmatic scrolling (only a window resize brings the
+    // bar back). The state storyboards outrank a local value while running,
+    // but NoIndicator is an empty state -- entering it stops them, and the
+    // property then falls back to this local pin, so the position rail stays
+    // available and hover-expansion keeps working normally.
+    private void PinScrollBarIndicator()
+    {
+        if (FindVerticalScrollBar(LogScroller) is ScrollBar bar)
+        {
+            bar.IndicatorMode = ScrollingIndicatorMode.MouseIndicator;
+        }
+    }
+
+    private static ScrollBar? FindVerticalScrollBar(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is ScrollBar { Orientation: Orientation.Vertical } bar)
+            {
+                return bar;
+            }
+            if (FindVerticalScrollBar(child) is ScrollBar nested)
+            {
+                return nested;
+            }
+        }
+        return null;
     }
 
     private void ApplyTitleBarTheme()
