@@ -72,8 +72,8 @@
                  bottom corners are rounded, concentric with Windows 11's
                  8px window curvature (the top edge adjoins the menu, where
                  the window edge is straight). The brush is assigned in
-                 code from SystemAccentColor -- the user's actual accent,
-                 matching the other targets -- rather than the
+                 code from SystemAccentColor (the user's actual accent,
+                 matching the other targets) rather than the
                  theme-lightened accent fill token. -->
             <Border x:Name="Outline" CornerRadius="0,0,8,8"
                     IsHitTestVisible="False"
