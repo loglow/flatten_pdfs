@@ -70,6 +70,7 @@ internal static class Spec
         public int Padding { get; set; }
         public int Spacing { get; set; }
         public int SpacingAfterTitle { get; set; }
+        public int SpacingAfterDetail { get; set; }
         public int SpacingAfterButtons { get; set; }
         public int ButtonGap { get; set; }
         public int TitleFontSize { get; set; }

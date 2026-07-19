@@ -188,7 +188,7 @@ internal sealed class MainForm : Form
             Margin = new Padding(0, 0, 0, Px(Spec.Layout.SpacingAfterTitle))
         };
 
-        _detail.Margin = new Padding(0, 0, 0, Px(Spec.Layout.Spacing));
+        _detail.Margin = new Padding(0, 0, 0, Px(Spec.Layout.SpacingAfterDetail));
 
         _openButton.Click += OnOpen;
         _openButton.Padding = new Padding(Px(8), Px(2), Px(8), Px(2));
@@ -230,7 +230,7 @@ internal sealed class MainForm : Form
         int frameWidth = Width - ClientSize.Width;
         MinimumSize = new Size(
             Px(Spec.Layout.MinWindowWidth) + frameWidth,
-            Px(Spec.Layout.MinWindowHeight) + menuHeight);
+            Px(Spec.Layout.MinWindowHeight) + menuHeight + Px(MacMinHeightParity));
 
         // Accept drops over the content area only -- the same region the
         // outline encloses. The form itself is deliberately not registered:
@@ -313,6 +313,10 @@ internal sealed class MainForm : Form
     // follows that curvature on all four corners (equal rounding at the top
     // is a design choice -- the window edge there is straight).
     private const int WindowCornerRadius = 8;
+
+    // The mac app's minimum window reads about this much taller than the
+    // outer-based minimum here; matched by eye for cross-target parity.
+    private const int MacMinHeightParity = 4;
 
     // Both Windows targets outline drops with the user's accent color.
     // WinForms has no accent API, so it is read from the DWM registry value
