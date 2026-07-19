@@ -30,7 +30,7 @@
              encloses); the menu above it does not accept drops. Fluent
              layering: the menu sits on bare Mica while the content region
              rides a Layer surface with rounded shoulders and a hairline top
-             stroke -- the Windows 11 chrome-vs-content idiom (Settings,
+             stroke, the Windows 11 chrome-vs-content idiom (Settings,
              Notepad). The layer brush also keeps the surface hit-testable
              for drag-and-drop (a null background is not). -->
         <Border x:Name="DropZone" Grid.Row="1"
