@@ -6,6 +6,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <PlatformTarget>x64</PlatformTarget>
     <Nullable>enable</Nullable>
+    <!-- Never glob stray obj/bin content as source, e.g. generated files
+         left in place by a build whose intermediates were redirected. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**</DefaultItemExcludes>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>App</RootNamespace>
     <ApplicationIcon>app.ico</ApplicationIcon>

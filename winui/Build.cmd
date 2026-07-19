@@ -59,6 +59,12 @@ set "BINROOT=%INTROOT%\bin"
 set "INTOPTS=-p:BaseIntermediateOutputPath="%INTROOT%/obj/" -p:BaseOutputPath="%INTROOT%/bin/""
 :local_disk
 
+rem Remove stale in-place intermediates from earlier builds first; when
+rem intermediates are redirected to the temp disk, leftovers here would
+rem otherwise be globbed as source files.
+rd /s /q "%ROOT%bin" >nul 2>nul
+rd /s /q "%ROOT%obj" >nul 2>nul
+
 rem --- Build ---
 rem The output folder of a plain build is used as the deliverable rather
 rem than dotnet publish: for unpackaged WinUI, the build output is exactly
