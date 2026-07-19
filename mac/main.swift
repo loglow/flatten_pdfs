@@ -486,19 +486,19 @@ private final class DropView: NSView {
         return true
     }
 
-    /// macOS publishes no API for its window corner radius; matched by eye
-    /// against the current OS so the outline follows the window's curvature.
-    private static let windowCornerRadius: CGFloat = 12
+    /// macOS publishes no API for its window corner radius. macOS Tahoe
+    /// rounds title-bar windows by 16pt (compact-toolbar windows 20pt,
+    /// full-toolbar windows 26pt); this app has a plain title bar.
+    private static let windowCornerRadius: CGFloat = 16
 
     /// AppKit provides no automatic drop-target styling for custom views, so
     /// an accent-color outline around the window content indicates an active
-    /// drop. Only the bottom corners are rounded: the content region's top
-    /// edge adjoins the title bar, where the window edge is straight.
+    /// drop. All four corners round equally (a design choice; the window
+    /// edge is only curved at the bottom of the content region).
     private func setHighlighted(_ highlighted: Bool) {
         layer?.borderColor = highlighted ? NSColor.controlAccentColor.cgColor : nil
         layer?.borderWidth = highlighted ? spec.layout.dropOutlineWidth : 0
         layer?.cornerRadius = highlighted ? Self.windowCornerRadius : 0
-        layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
     }
 
     func setBusy(_ busy: Bool) {

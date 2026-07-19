@@ -302,9 +302,9 @@ internal sealed class MainForm : Form
     // accent-color outline around the content area indicates an active drop,
     // stroked inside _content's padding ring where no child control covers it.
 
-    // Windows 11 rounds window corners by 8 logical pixels; the outline's
-    // bottom corners follow that curvature (its top edge adjoins the menu,
-    // where the window edge is straight).
+    // Windows 11 rounds window corners by 8 logical pixels; the outline
+    // follows that curvature on all four corners (equal rounding at the top
+    // is a design choice -- the window edge there is straight).
     private const int WindowCornerRadius = 8;
 
     // Both Windows targets outline drops with the user's accent color.
@@ -348,22 +348,20 @@ internal sealed class MainForm : Form
 
         // Stroke centered on a half-thickness-inset path, so the outline's
         // outer edge sits flush against the window edge (an inner stroke,
-        // like the other targets). Bottom corner arcs run concentric with
-        // the window's rounding.
+        // like the other targets). Corner arcs run concentric with the
+        // window's rounding.
         float thickness = Spec.Layout.DropOutlineWidth * _scale;
         float inset = thickness / 2f;
         float radius = MathF.Max(1f, WindowCornerRadius * _scale - inset);
+        float diameter = 2 * radius;
         RectangleF bounds = _content.ClientRectangle;
         bounds.Inflate(-inset, -inset);
 
         using GraphicsPath path = new();
-        path.StartFigure();
-        path.AddLine(bounds.Left, bounds.Top, bounds.Right, bounds.Top);
-        path.AddLine(bounds.Right, bounds.Top, bounds.Right, bounds.Bottom - radius);
-        path.AddArc(bounds.Right - 2 * radius, bounds.Bottom - 2 * radius,
-                    2 * radius, 2 * radius, 0, 90);
-        path.AddLine(bounds.Right - radius, bounds.Bottom, bounds.Left + radius, bounds.Bottom);
-        path.AddArc(bounds.Left, bounds.Bottom - 2 * radius, 2 * radius, 2 * radius, 90, 90);
+        path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+        path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
 
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;

@@ -68,14 +68,13 @@
 
             <!-- The accent outline shown while a valid drag is over the
                  drop zone: an overlay, so toggling it never reflows the
-                 content beneath. Flush with the window edges; only the
-                 bottom corners are rounded, concentric with Windows 11's
-                 8px window curvature (the top edge adjoins the menu, where
-                 the window edge is straight). The brush is assigned in
+                 content beneath. Flush with the window edges; all four
+                 corners round equally, concentric with Windows 11's 8px
+                 window curvature. The brush is assigned in
                  code from SystemAccentColor (the user's actual accent,
                  matching the other targets) rather than the
                  theme-lightened accent fill token. -->
-            <Border x:Name="Outline" CornerRadius="0,0,8,8"
+            <Border x:Name="Outline" CornerRadius="8"
                     IsHitTestVisible="False"
                     BorderThickness="0" />
         </Grid>
