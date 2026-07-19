@@ -11,7 +11,6 @@ using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
@@ -185,36 +184,40 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // The ScrollViewer drives its ScrollBar's IndicatorMode through a
-    // visual-state machine that can wedge in the hidden NoIndicator state
-    // after wheel or programmatic scrolling (only a window resize brings the
-    // bar back). The state storyboards outrank a local value while running,
-    // but NoIndicator is an empty state -- entering it stops them, and the
-    // property then falls back to this local pin, so the position rail stays
-    // available and hover-expansion keeps working normally.
+    // The ScrollViewer hides its scrollbars through the template's
+    // ScrollingIndicatorStates group: the transition into NoIndicator
+    // animates the ScrollBar's IndicatorMode to None, and the ScrollBar's
+    // own NoIndicator state then animates every visual part's opacity to
+    // zero. Both are animations, which outrank any property value we could
+    // set -- and the machine can also wedge in NoIndicator after wheel or
+    // programmatic scrolling, leaving no bar until a window resize. So the
+    // state machine itself is countered: any move toward NoIndicator is
+    // bounced straight back to MouseIndicator (without transitions, so the
+    // delayed hide storyboard never lands). The bar stays visible and
+    // hover-expansion continues to work.
     private void PinScrollBarIndicator()
     {
-        if (FindVerticalScrollBar(LogScroller) is ScrollBar bar)
+        if (VisualTreeHelper.GetChildrenCount(LogScroller) > 0 &&
+            VisualTreeHelper.GetChild(LogScroller, 0) is FrameworkElement root)
         {
-            bar.IndicatorMode = ScrollingIndicatorMode.MouseIndicator;
+            foreach (VisualStateGroup group in VisualStateManager.GetVisualStateGroups(root))
+            {
+                if (group.Name == "ScrollingIndicatorStates")
+                {
+                    group.CurrentStateChanging += (_, e) => BounceNoIndicator(e.NewState);
+                    group.CurrentStateChanged += (_, e) => BounceNoIndicator(e.NewState);
+                }
+            }
         }
+        VisualStateManager.GoToState(LogScroller, "MouseIndicator", useTransitions: false);
     }
 
-    private static ScrollBar? FindVerticalScrollBar(DependencyObject root)
+    private void BounceNoIndicator(VisualState? state)
     {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        if (state?.Name == "NoIndicator")
         {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is ScrollBar { Orientation: Orientation.Vertical } bar)
-            {
-                return bar;
-            }
-            if (FindVerticalScrollBar(child) is ScrollBar nested)
-            {
-                return nested;
-            }
+            VisualStateManager.GoToState(LogScroller, "MouseIndicator", useTransitions: false);
         }
-        return null;
     }
 
     private void ApplyTitleBarTheme()
