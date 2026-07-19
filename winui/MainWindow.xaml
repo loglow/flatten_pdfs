@@ -76,7 +76,20 @@
                              FontFamily="Consolas" TextWrapping="Wrap"
                              BorderThickness="0" Background="Transparent"
                              Padding="8"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <TextBox.Resources>
+                            <!-- Lightweight styling: the log is a display
+                                 surface, not an input field, so the editing
+                                 affordances (hover tint, focus fill, accent
+                                 underline) are quieted, like the winforms
+                                 log. The I-beam cursor stays: selectable
+                                 text shows it on every target. -->
+                            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                        </TextBox.Resources>
+                    </TextBox>
                 </Border>
             </Grid>
 
