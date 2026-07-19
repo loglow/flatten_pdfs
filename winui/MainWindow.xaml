@@ -1,7 +1,8 @@
 <Window
     x:Class="App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:App">
 
     <!-- Structure and theme brushes live here; all text, sizes, and spacing
          come from the shared spec, assigned in code-behind. -->
@@ -72,12 +73,12 @@
                          ScrollViewer-around-selectable-TextBlock combination
                          broke the scrollbar's indicator state on animated
                          scrolls, on two SDK generations. -->
-                    <TextBox x:Name="LogText" AcceptsReturn="True" IsReadOnly="True"
+                    <local:LogBox x:Name="LogText" AcceptsReturn="True" IsReadOnly="True"
                              FontFamily="Consolas" TextWrapping="Wrap"
                              BorderThickness="0" Background="Transparent"
                              Padding="8"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <TextBox.Resources>
+                        <local:LogBox.Resources>
                             <!-- Lightweight styling: the log is a display
                                  surface, not an input field, so the editing
                                  affordances (hover tint, focus fill, accent
@@ -88,8 +89,8 @@
                             <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
                             <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
                             <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-                        </TextBox.Resources>
-                    </TextBox>
+                        </local:LogBox.Resources>
+                    </local:LogBox>
                 </Border>
             </Grid>
 

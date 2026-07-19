@@ -10,7 +10,9 @@ using System.Runtime.InteropServices;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
@@ -304,5 +306,46 @@ public sealed partial class MainWindow : Window
     {
         SelectButton.IsEnabled = !busy;
         OpenItem.IsEnabled = !busy;
+    }
+}
+
+// A read-only log TextBox whose cursor behaves like the other targets':
+// stock WinUI shows the I-beam over the entire control including its
+// scrollbar, while mac and winforms switch to an arrow there. The pointer
+// events on the template's scrollbar swap the control's cursor accordingly.
+public sealed partial class LogBox : TextBox
+{
+    private static readonly InputCursor ArrowCursor =
+        InputSystemCursor.Create(InputSystemCursorShape.Arrow);
+    private static readonly InputCursor IBeamCursor =
+        InputSystemCursor.Create(InputSystemCursorShape.IBeam);
+
+    public LogBox()
+    {
+        Loaded += (_, _) =>
+        {
+            if (FindVerticalScrollBar(this) is ScrollBar bar)
+            {
+                bar.PointerEntered += (_, _) => ProtectedCursor = ArrowCursor;
+                bar.PointerExited += (_, _) => ProtectedCursor = IBeamCursor;
+            }
+        };
+    }
+
+    private static ScrollBar? FindVerticalScrollBar(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is ScrollBar { Orientation: Orientation.Vertical } bar)
+            {
+                return bar;
+            }
+            if (FindVerticalScrollBar(child) is ScrollBar nested)
+            {
+                return nested;
+            }
+        }
+        return null;
     }
 }
