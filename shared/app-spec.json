@@ -36,7 +36,6 @@
     "logFontSize": 11,
     "detailMaxWidth": 520,
     "logMinHeight": 170,
-    "dropOutlineWidth": 3,
-    "dropOutlineCornerRadius": 10
+    "dropOutlineWidth": 3
   }
 }

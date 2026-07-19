@@ -22,6 +22,7 @@
 // executable, which the build script downloads once.
 
 using System.Collections.Concurrent;
+using System.Drawing.Drawing2D;
 using System.Media;
 using System.Runtime.InteropServices;
 using ComIDataObject = System.Runtime.InteropServices.ComTypes.IDataObject;
@@ -224,8 +225,9 @@ internal sealed class MainForm : Form
         ClientSize = new Size(Px(Spec.Layout.WindowWidth), Px(Spec.Layout.WindowHeight) + menuHeight);
         MinimumSize = new Size(Px(Spec.Layout.MinWindowWidth), Px(Spec.Layout.MinWindowHeight) + menuHeight);
 
-        // Accept drops anywhere over the window and its content.
-        EnableDrop(this);
+        // Accept drops over the content area only -- the same region the
+        // outline encloses. The form itself is deliberately not registered:
+        // a form-level registration would cover the title bar and menu too.
         EnableDrop(_content);
         EnableDrop(title);
         EnableDrop(_detail);
@@ -288,19 +290,45 @@ internal sealed class MainForm : Form
     {
         DragImage.Leave();
         // DragLeave also fires when the pointer crosses from one control onto
-        // another inside the window, which would flicker the highlight. Only
-        // clear it once the pointer is truly outside.
-        if (!ClientRectangle.Contains(PointToClient(Cursor.Position)))
+        // another inside the drop area, which would flicker the highlight.
+        // Only clear it once the pointer is truly outside the content area.
+        if (!_content.ClientRectangle.Contains(_content.PointToClient(Cursor.Position)))
         {
             SetHighlight(false);
         }
     }
 
     // Windows has no system-wide drop-target style for plain windows, so an
-    // accent-color outline around the window content indicates an active
-    // drop. It is stroked inside _content's padding ring, where no child
-    // control can cover it. SystemColors.Highlight reflects the system accent
-    // and the active light/dark color mode when read.
+    // accent-color outline around the content area indicates an active drop,
+    // stroked inside _content's padding ring where no child control covers it.
+
+    // Windows 11 rounds window corners by 8 logical pixels; the outline's
+    // bottom corners follow that curvature (its top edge adjoins the menu,
+    // where the window edge is straight).
+    private const int WindowCornerRadius = 8;
+
+    // Both Windows targets outline drops with the user's accent color.
+    // WinForms has no accent API, so it is read from the DWM registry value
+    // (ABGR), falling back to the classic selection color.
+    private static readonly Color AccentColor = ReadAccentColor();
+
+    private static Color ReadAccentColor()
+    {
+        try
+        {
+            if (Microsoft.Win32.Registry.GetValue(
+                    @"HKEY_CURRENT_USER\Software\Microsoft\Windows\DWM",
+                    "AccentColor", null) is int abgr)
+            {
+                return Color.FromArgb(abgr & 0xFF, (abgr >> 8) & 0xFF, (abgr >> 16) & 0xFF);
+            }
+        }
+        catch
+        {
+        }
+        return SystemColors.Highlight;
+    }
+
     private void SetHighlight(bool highlighted)
     {
         if (_dragHighlighted == highlighted)
@@ -317,10 +345,30 @@ internal sealed class MainForm : Form
         {
             return;
         }
-        Rectangle bounds = _content.ClientRectangle;
-        bounds.Inflate(-Px(2), -Px(2));
-        using Pen pen = new(SystemColors.Highlight, Spec.Layout.DropOutlineWidth * _scale);
-        e.Graphics.DrawRectangle(pen, bounds);
+
+        // Stroke centered on a half-thickness-inset path, so the outline's
+        // outer edge sits flush against the window edge (an inner stroke,
+        // like the other targets). Bottom corner arcs run concentric with
+        // the window's rounding.
+        float thickness = Spec.Layout.DropOutlineWidth * _scale;
+        float inset = thickness / 2f;
+        float radius = MathF.Max(1f, WindowCornerRadius * _scale - inset);
+        RectangleF bounds = _content.ClientRectangle;
+        bounds.Inflate(-inset, -inset);
+
+        using GraphicsPath path = new();
+        path.StartFigure();
+        path.AddLine(bounds.Left, bounds.Top, bounds.Right, bounds.Top);
+        path.AddLine(bounds.Right, bounds.Top, bounds.Right, bounds.Bottom - radius);
+        path.AddArc(bounds.Right - 2 * radius, bounds.Bottom - 2 * radius,
+                    2 * radius, 2 * radius, 0, 90);
+        path.AddLine(bounds.Right - radius, bounds.Bottom, bounds.Left + radius, bounds.Bottom);
+        path.AddArc(bounds.Left, bounds.Bottom - 2 * radius, 2 * radius, 2 * radius, 90, 90);
+        path.CloseFigure();
+
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using Pen pen = new(AccentColor, thickness);
+        e.Graphics.DrawPath(pen, path);
     }
 
     private static string[] GetDroppedFiles(IDataObject? data)

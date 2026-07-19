@@ -5,11 +5,7 @@
 
     <!-- Structure and theme brushes live here; all text, sizes, and spacing
          come from the shared spec, assigned in code-behind. -->
-    <!-- The explicit Transparent background keeps the whole surface
-         hit-testable for drag-and-drop (a null background is not) while
-         letting the Mica backdrop show through. -->
-    <Grid x:Name="Root" Background="Transparent" AllowDrop="True"
-          DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
+    <Grid x:Name="Root">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -30,7 +26,13 @@
             </MenuBarItem>
         </MenuBar>
 
-        <Grid Grid.Row="1">
+        <!-- The drop zone is the content area only (the region the outline
+             encloses); the menu above it does not accept drops. The explicit
+             Transparent background keeps the whole surface hit-testable for
+             drag-and-drop (a null background is not) while letting the Mica
+             backdrop show through. -->
+        <Grid x:Name="DropZone" Grid.Row="1" Background="Transparent" AllowDrop="True"
+              DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
             <Grid x:Name="ContentGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -65,11 +67,16 @@
             </Grid>
 
             <!-- The accent outline shown while a valid drag is over the
-                 window: an overlay, so toggling it never reflows the
-                 content beneath. -->
-            <Border x:Name="Outline" Margin="4" CornerRadius="8"
+                 drop zone: an overlay, so toggling it never reflows the
+                 content beneath. Flush with the window edges; only the
+                 bottom corners are rounded, concentric with Windows 11's
+                 8px window curvature (the top edge adjoins the menu, where
+                 the window edge is straight). The brush is assigned in
+                 code from SystemAccentColor -- the user's actual accent,
+                 matching the other targets -- rather than the
+                 theme-lightened accent fill token. -->
+            <Border x:Name="Outline" CornerRadius="0,0,8,8"
                     IsHitTestVisible="False"
-                    BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
                     BorderThickness="0" />
         </Grid>
     </Grid>

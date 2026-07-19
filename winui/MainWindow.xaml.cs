@@ -67,6 +67,11 @@ public sealed partial class MainWindow : Window
         _hwnd = WindowNative.GetWindowHandle(this);
         _scale = GetDpiForWindow(_hwnd) / 96f;
 
+        // The user's actual accent color (not the theme-lightened accent
+        // fill), matching the mac and winforms outlines.
+        Outline.BorderBrush = new SolidColorBrush(
+            (Windows.UI.Color)Application.Current.Resources["SystemAccentColor"]);
+
         // The system title bar does not follow the app theme on its own.
         ApplyTitleBarTheme();
         Root.ActualThemeChanged += (_, _) => ApplyTitleBarTheme();

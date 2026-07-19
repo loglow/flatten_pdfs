@@ -49,7 +49,6 @@ struct Spec: Decodable {
         let detailMaxWidth: CGFloat
         let logMinHeight: CGFloat
         let dropOutlineWidth: CGFloat
-        let dropOutlineCornerRadius: CGFloat
     }
 }
 
@@ -487,13 +486,19 @@ private final class DropView: NSView {
         return true
     }
 
+    /// macOS publishes no API for its window corner radius; matched by eye
+    /// against the current OS so the outline follows the window's curvature.
+    private static let windowCornerRadius: CGFloat = 12
+
     /// AppKit provides no automatic drop-target styling for custom views, so
     /// an accent-color outline around the window content indicates an active
-    /// drop.
+    /// drop. Only the bottom corners are rounded: the content region's top
+    /// edge adjoins the title bar, where the window edge is straight.
     private func setHighlighted(_ highlighted: Bool) {
         layer?.borderColor = highlighted ? NSColor.controlAccentColor.cgColor : nil
         layer?.borderWidth = highlighted ? spec.layout.dropOutlineWidth : 0
-        layer?.cornerRadius = highlighted ? spec.layout.dropOutlineCornerRadius : 0
+        layer?.cornerRadius = highlighted ? Self.windowCornerRadius : 0
+        layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
     }
 
     func setBusy(_ busy: Bool) {
