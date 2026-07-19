@@ -11,6 +11,7 @@ using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
@@ -184,32 +185,78 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // The ScrollViewer hides its scrollbars through the template's
-    // ScrollingIndicatorStates group: the transition into NoIndicator
-    // animates the ScrollBar's IndicatorMode to None, and the ScrollBar's
-    // own NoIndicator state then animates every visual part's opacity to
-    // zero. Both are animations, which outrank any property value we could
-    // set -- and the machine can also wedge in NoIndicator after wheel or
-    // programmatic scrolling, leaving no bar until a window resize. So the
-    // state machine itself is countered: any move toward NoIndicator is
-    // bounced straight back to MouseIndicator (without transitions, so the
-    // delayed hide storyboard never lands). The bar stays visible and
-    // hover-expansion continues to work.
+    // TEMPORARY DIAGNOSTICS for the vanishing log scrollbar: five fixes
+    // aimed at the documented hiding mechanisms have not changed the
+    // behavior, and the state-machine bounce below never fires -- so the
+    // real mechanism is something this instrumentation is meant to reveal.
+    // Every observation is written into the log box itself, prefixed
+    // [scrollbar].
     private void PinScrollBarIndicator()
     {
-        if (VisualTreeHelper.GetChildrenCount(LogScroller) > 0 &&
-            VisualTreeHelper.GetChild(LogScroller, 0) is FrameworkElement root)
+        void Note(string message) =>
+            DispatcherQueue.TryEnqueue(() => AppendLog("[scrollbar] " + message));
+
+        if (VisualTreeHelper.GetChildrenCount(LogScroller) == 0 ||
+            VisualTreeHelper.GetChild(LogScroller, 0) is not FrameworkElement root)
         {
-            foreach (VisualStateGroup group in VisualStateManager.GetVisualStateGroups(root))
+            Note("no template root found");
+            return;
+        }
+
+        var groups = VisualStateManager.GetVisualStateGroups(root);
+        Note($"template root: {root.GetType().Name} '{root.Name}', {groups.Count} state group(s)");
+        foreach (VisualStateGroup group in groups)
+        {
+            Note($"group {group.Name}: {string.Join("/", group.States.Select(st => st.Name))}");
+            string groupName = group.Name;
+            group.CurrentStateChanging += (_, e) =>
             {
-                if (group.Name == "ScrollingIndicatorStates")
-                {
-                    group.CurrentStateChanging += (_, e) => BounceNoIndicator(e.NewState);
-                    group.CurrentStateChanged += (_, e) => BounceNoIndicator(e.NewState);
-                }
+                Note($"{groupName} changing {e.OldState?.Name} -> {e.NewState?.Name}");
+                BounceNoIndicator(e.NewState);
+            };
+            group.CurrentStateChanged += (_, e) =>
+            {
+                Note($"{groupName} changed {e.OldState?.Name} -> {e.NewState?.Name}");
+                BounceNoIndicator(e.NewState);
+            };
+        }
+
+        if (FindVerticalScrollBar(LogScroller) is ScrollBar bar)
+        {
+            Note($"bar: vis={bar.Visibility} opacity={bar.Opacity:0.##} mode={bar.IndicatorMode} " +
+                 $"size={bar.ActualWidth:0.#}x{bar.ActualHeight:0.#}");
+            bar.RegisterPropertyChangedCallback(UIElement.VisibilityProperty,
+                (_, _) => Note($"bar visibility -> {bar.Visibility}"));
+            bar.RegisterPropertyChangedCallback(UIElement.OpacityProperty,
+                (_, _) => Note($"bar opacity -> {bar.Opacity:0.##}"));
+            bar.RegisterPropertyChangedCallback(ScrollBar.IndicatorModeProperty,
+                (_, _) => Note($"bar mode -> {bar.IndicatorMode}"));
+            bar.SizeChanged += (_, _) =>
+                Note($"bar size -> {bar.ActualWidth:0.#}x{bar.ActualHeight:0.#}");
+        }
+        else
+        {
+            Note("vertical ScrollBar NOT found in template");
+        }
+
+        VisualStateManager.GoToState(LogScroller, "MouseIndicator", useTransitions: false);
+    }
+
+    private static ScrollBar? FindVerticalScrollBar(DependencyObject root)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is ScrollBar { Orientation: Orientation.Vertical } bar)
+            {
+                return bar;
+            }
+            if (FindVerticalScrollBar(child) is ScrollBar nested)
+            {
+                return nested;
             }
         }
-        VisualStateManager.GoToState(LogScroller, "MouseIndicator", useTransitions: false);
+        return null;
     }
 
     private void BounceNoIndicator(VisualState? state)
