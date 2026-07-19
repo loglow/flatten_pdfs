@@ -36,6 +36,10 @@ public sealed partial class MainWindow : Window
     // directly; only the physical-pixel window sizing below needs the DPI.)
     private const float ConsolasCorrection = 1.2f;
 
+    // The mac app's minimum window reads about this much taller than the
+    // outer-based minimum here; matched by eye for cross-target parity.
+    private const int MacMinHeightParity = 4;
+
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);
 
@@ -92,10 +96,12 @@ public sealed partial class MainWindow : Window
         ContentGrid.Padding = new Thickness(Spec.Layout.Padding);
         ContentGrid.RowSpacing = Spec.Layout.Spacing;
         Buttons.Spacing = Spec.Layout.ButtonGap;
-        // The gap between the buttons and the log is spacingAfterButtons; the
-        // grid's RowSpacing already contributes `spacing` of it.
+        // The gaps around the buttons are spacingAfterDetail (above) and
+        // spacingAfterButtons (below); the grid's RowSpacing already
+        // contributes `spacing` to each.
         Buttons.Margin = new Thickness(
-            0, 0, 0, Spec.Layout.SpacingAfterButtons - Spec.Layout.Spacing);
+            0, Spec.Layout.SpacingAfterDetail - Spec.Layout.Spacing,
+            0, Spec.Layout.SpacingAfterButtons - Spec.Layout.Spacing);
 
         if (MicaController.IsSupported())
         {
@@ -174,7 +180,7 @@ public sealed partial class MainWindow : Window
             int chromeWidth = AppWindow.Size.Width - AppWindow.ClientSize.Width;
             presenter.PreferredMinimumWidth = Px(Spec.Layout.MinWindowWidth) + chromeWidth;
             presenter.PreferredMinimumHeight =
-                Px(Spec.Layout.MinWindowHeight) + menuHeightPx;
+                Px(Spec.Layout.MinWindowHeight) + menuHeightPx + Px(MacMinHeightParity);
         }
     }
 
