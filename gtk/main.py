@@ -316,8 +316,8 @@ class MainWindow(Adw.ApplicationWindow):
             .drop-title {{ font-size: {LAYOUT['titleFontSize']}px; font-weight: 600; }}
             .drop-detail {{ font-size: {LAYOUT['detailFontSize']}px; }}
             .log-view {{ font-size: {LAYOUT['logFontSize']}px; }}
-            .drop-zone.dragging {{
-                box-shadow: inset 0 0 0 {LAYOUT['dropOutlineWidth']}px @accent_bg_color;
+            .drop-outline {{
+                border: {LAYOUT['dropOutlineWidth']}px solid @accent_bg_color;
                 border-radius: {WINDOW_CORNER_RADIUS}px;
             }}
         """)
@@ -333,11 +333,10 @@ class MainWindow(Adw.ApplicationWindow):
         menu_button = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu)
         header.pack_end(menu_button)
 
-        # Content: title, detail, buttons, log. The box is the drop zone
-        # (the region the accent outline encloses); the header bar above it
-        # does not accept drops, like the other targets' menus.
+        # Content: title, detail, buttons, log. GTK margins sit outside a
+        # widget's CSS box, so these provide the window padding while the
+        # drop outline is drawn by a separate flush overlay below.
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        content.add_css_class("drop-zone")
         for side in ("top", "bottom", "start", "end"):
             getattr(content, f"set_margin_{side}")(LAYOUT["padding"])
 
@@ -378,15 +377,23 @@ class MainWindow(Adw.ApplicationWindow):
         log_scroller.add_css_class("card")
         content.append(log_scroller)
 
-        # Drag and drop over the content area only.
+        # The drop zone is the whole content area below the header bar (the
+        # header bar does not accept drops, like the other targets' menus).
+        # The accent outline is a separate overlay child so it hugs the
+        # window edges, ignores pointer events, and paints above the content
+        # (mirrors the winui target's overlay Border).
+        self._outline = Gtk.Box(visible=False, can_target=False)
+        self._outline.add_css_class("drop-outline")
+        overlay = Gtk.Overlay(child=content)
+        overlay.add_overlay(self._outline)
+
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop.connect("enter", self._on_drag_enter)
         drop.connect("leave", self._on_drag_leave)
         drop.connect("drop", self._on_drop)
-        content.add_controller(drop)
-        self._content = content
+        overlay.add_controller(drop)
 
-        toolbar = Adw.ToolbarView(content=content)
+        toolbar = Adw.ToolbarView(content=overlay)
         toolbar.add_top_bar(header)
         self.set_content(toolbar)
 
@@ -405,14 +412,14 @@ class MainWindow(Adw.ApplicationWindow):
     # ------- Drag and drop -------
 
     def _on_drag_enter(self, _target, _x, _y):
-        self._content.add_css_class("dragging")
+        self._outline.set_visible(True)
         return Gdk.DragAction.COPY
 
     def _on_drag_leave(self, _target):
-        self._content.remove_css_class("dragging")
+        self._outline.set_visible(False)
 
     def _on_drop(self, _target, value, _x, _y):
-        self._content.remove_css_class("dragging")
+        self._outline.set_visible(False)
         paths = [f.get_path() for f in value.get_files() if f.get_path()]
         self.worker.enqueue(paths)
         return True
